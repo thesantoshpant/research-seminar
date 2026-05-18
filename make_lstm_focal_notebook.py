@@ -5,16 +5,33 @@ Focal Loss, per the professor's request.
 She pointed at her own Keras notebook
 (`3_ATL03_prepare_data_LSTM_training_2025_cor_label.ipynb`) which uses
 `tf.keras.losses.CategoricalFocalCrossentropy(alpha=..., gamma=2.0)`.
-The alpha vectors she tried (indexed [ice, thin_ice, water]):
+
+After reading her notebook end-to-end (her final `model.compile` is at
+cell line 12587 / 12593, and `model.fit` at 12606), the *actually run*
+recipe is:
+
+    alpha = [0.05, 0.45, 0.60]     # the active vector in her final cell
+    gamma = 2.0
+    optimizer = Adam(lr=0.0008886176350890356)   # Keras-Tuner result
+    epochs = 50, batch_size = 32, EarlyStopping defined but not passed
+    dropout = 0.4 (twice after the LSTM)
+    dense head after LSTM:  Dense(16, elu) -> Dropout(0.4)
+                            Dense(16, elu) -> Dropout(0.4)
+                            Dense(3,  softmax)
+
+This generator mirrors all of those hyperparameters in our PyTorch
+per-pixel pipeline (input is still our 32-row window of normalized CSV
+features, output is still 128x128 -- so deep-fusion can still consume
+this checkpoint). Only the loss + head + LR + dropout + epoch count are
+swapped to match hers.
+
+Alpha vectors she experimented with (indexed [ice, thin_ice, water]):
 
     [0.02, 0.44, 0.54]
     [0.05, 0.45, 0.50]
-    [0.05, 0.50, 0.45]    <-- her best (from in-notebook comment)
+    [0.05, 0.50, 0.45]
     [0.041, 0.409, 0.550]
-    [0.05, 0.45, 0.60]
-
-The notebook keeps everything else identical to the plain LSTM run so the
-result is directly comparable -- only the loss function is swapped.
+    [0.05, 0.45, 0.60]    <-- her *active* vector in the final cell
 
 Outputs (in runs/lstm_focal_v1/):
   - best.pt              : best-by-val-mIoU checkpoint
@@ -38,23 +55,39 @@ md = lambda s: cells.append(nbf.v4.new_markdown_cell(s))
 code = lambda s: cells.append(nbf.v4.new_code_cell(s))
 
 # =========================================================================
-md(r"""# Bi-LSTM with Focal Loss
+md(r"""# Bi-LSTM with Focal Loss (aligned to prof's recipe)
 
 The plain Bi-LSTM run collapsed to all-ice on test (mIoU 0.2420).
 Per the professor's note, we swap the weighted cross-entropy for **Focal
-Loss** with the alpha / gamma she settled on in her own Keras notebook.
+Loss** with the alpha / gamma she ran in her own Keras notebook
+(`3_ATL03_prepare_data_LSTM_training_2025_cor_label.ipynb`).
 
-* Architecture: **same as `lstm_baseline.ipynb`** -- a single per-patch
-  vector tiled to 128x128 (no spatial decoder).
-* Loss: `CategoricalFocalCrossentropy(alpha=[0.05, 0.50, 0.45], gamma=2.0)`
-  -- her best alpha is the default below; change `ALPHA` to sweep.
-* Splits, optimizer, LR, batch size: identical to the original run.
+After reading that notebook, her *actually run* settings are:
 
-Expected outcome: the LSTM-alone score will still be capped (because the
-photon signal is 1-D inside a 2-D patch), but focal loss should at least
-force the model off "predict all ice" and into producing non-trivial
-thin-ice / water predictions, which is what the prof asked for to help
-the downstream fusion model.""")
+| setting | her value | now used here |
+|---|---|---|
+| loss | `CategoricalFocalCrossentropy(alpha=[0.05,0.45,0.60], gamma=2.0)` | same |
+| optimizer | `Adam(lr=8.886e-4)` (Keras-Tuner pick) | same |
+| dropout | 0.4 (twice after LSTM) | same |
+| head | Dense(16,elu) -> Dense(16,elu) -> Dense(3,softmax) | same (as 1x1 Conv2d) |
+| epochs | 50 (EarlyStopping defined but not passed to fit) | same |
+| LSTM | uni-directional, 48 hidden, 1 layer | we keep our Bi-LSTM(128, 2 layers); see note below |
+
+**What stays our own:** the input pipeline (32-row window of normalized
+CSV features) and per-pixel 128x128 output (tiled head). This is
+*deliberate* -- the downstream deep-fusion model needs a per-pixel CSV
+branch to fuse against the U-Net feature map. Her notebook is
+per-segment-classification only, so we can't slot her exact model into
+fusion as-is. The faithful structural mirror lives in a separate
+notebook (`lstm_prof_style.ipynb`).
+
+Alpha vectors she experimented with -- swap `ALPHA` to ablate:
+
+    [0.02, 0.44, 0.54]
+    [0.05, 0.45, 0.50]
+    [0.05, 0.50, 0.45]
+    [0.041, 0.409, 0.550]
+    [0.05, 0.45, 0.60]    <-- her active vector in the final cell""")
 
 # -------- Cell: GPU pin --------------------------------------------------
 md("## 0. Setup")
@@ -98,22 +131,24 @@ NUM_CLASSES  = 3
 PATCH        = 128
 WINDOW_K     = 32
 BATCH_SIZE   = 256
-EPOCHS       = 30
-LR           = 1e-3
+EPOCHS       = 50                  # prof: 50, no early stop
+LR           = 8.886176350890356e-4 # prof's Keras-Tuner pick
 WEIGHT_DECAY = 1e-4
-PATIENCE     = 5
+PATIENCE     = EPOCHS              # effectively disables early stopping
 NUM_WORKERS  = 4
 LSTM_HIDDEN  = 128
 LSTM_LAYERS  = 2
-LSTM_DROPOUT = 0.2
+LSTM_DROPOUT = 0.4                 # prof: 0.4 (was 0.2)
+HEAD_DROPOUT = 0.4                 # prof: 0.4 after each Dense(16, elu)
+HEAD_HIDDEN  = 16                  # prof: Dense(16, elu) x2
 
-# ------- focal loss settings (per prof's notebook) -------
+# ------- focal loss settings (per prof's notebook, final cell) ----
 # alpha indexes are [ice, thin_ice, water]. Swap to one of the variants below.
-ALPHA   = [0.05, 0.50, 0.45]   # <-- her "best" (from a comment in her notebook)
+ALPHA   = [0.05, 0.45, 0.60]   # <-- her *active* vector in final compile cell
 # ALPHA = [0.02, 0.44, 0.54]
 # ALPHA = [0.05, 0.45, 0.50]
+# ALPHA = [0.05, 0.50, 0.45]
 # ALPHA = [0.041, 0.409, 0.550]
-# ALPHA = [0.05, 0.45, 0.60]
 GAMMA   = 2.0
 # ---------------------------------------------------------
 
@@ -246,7 +281,8 @@ code(r"""device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class CSVOnlyModel(nn.Module):
     def __init__(self, n_features, hidden=LSTM_HIDDEN, layers=LSTM_LAYERS,
-                 dropout=LSTM_DROPOUT, num_classes=NUM_CLASSES, patch=PATCH):
+                 dropout=LSTM_DROPOUT, num_classes=NUM_CLASSES, patch=PATCH,
+                 head_hidden=HEAD_HIDDEN, head_dropout=HEAD_DROPOUT):
         super().__init__()
         self.patch = patch
         self.proj = nn.Sequential(
@@ -259,11 +295,19 @@ class CSVOnlyModel(nn.Module):
             batch_first=True, bidirectional=True,
             dropout=dropout if layers > 1 else 0.0,
         )
+        # Mirror prof's head: Dropout(0.4) -> Dense(16,elu) -> Dropout(0.4)
+        #                    -> Dense(16,elu) -> Dropout(0.4) -> Dense(3,softmax)
+        # (softmax is implicit since the focal-loss op takes logits and
+        #  applies log_softmax internally)
         self.head = nn.Sequential(
-            nn.Conv2d(hidden * 2, 64, kernel_size=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.Conv2d(64, num_classes, kernel_size=1),
+            nn.Dropout2d(head_dropout),
+            nn.Conv2d(hidden * 2, head_hidden, kernel_size=1),
+            nn.ELU(inplace=True),
+            nn.Dropout2d(head_dropout),
+            nn.Conv2d(head_hidden, head_hidden, kernel_size=1),
+            nn.ELU(inplace=True),
+            nn.Dropout2d(head_dropout),
+            nn.Conv2d(head_hidden, num_classes, kernel_size=1),
         )
 
     def forward(self, x, valid=None):
@@ -475,11 +519,24 @@ Files in `runs/lstm_focal_v1/`:
 * `test_metrics.json`  -- final test mIoU / per-class IoU / pix_acc
 * `confmat.png`        -- test-set confusion matrix
 
+**What was changed in this iteration (vs the original plain-LSTM run)**:
+
+* Loss: CE -> CategoricalFocalLoss(alpha=[0.05,0.45,0.60], gamma=2.0)
+* LR:   1e-3 -> 8.886e-4 (her Keras-Tuner pick)
+* Dropout in LSTM: 0.2 -> 0.4
+* Head: 1x1 Conv(64)+BN+ReLU+Conv(3) -> 1x1 Conv(16,elu) x 2 + Dropout(0.4)
+  + Conv(3) (mirrors her Dense(16,elu)*2 + Dense(3,softmax))
+* Epochs: 30 + early-stop -> 50, early-stop effectively disabled
+
 If the LSTM-alone mIoU jumps from ~0.24 to something meaningfully higher
 (and the confusion matrix shows non-trivial thin-ice / water diagonals),
 the focal-loss switch worked as the prof predicted. Next step would be to
 retrain the deep-fusion model with the same loss to see if fusion picks
-up additional mIoU on thin-ice.""")
+up additional mIoU on thin-ice.
+
+For a structurally faithful mirror of her *exact* architecture
+(uni-LSTM(48), 5-segment window over 8 engineered features, per-segment
+output), see `lstm_prof_style.ipynb`.""")
 
 # =========================================================================
 nb["cells"] = cells
