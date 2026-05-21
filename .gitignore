@@ -46,6 +46,12 @@ Screenshot_*.jpeg
 Screenshot_*.jpg
 Screenshot_*.png
 
+# --- Build scripts that just regenerate notebooks / PDFs ---
+# The .ipynb files and PDFs they produce are what get tracked. The
+# generator scripts stay local; they're build tooling, not deliverables.
+make_*.py
+**/make_*.py
+
 # --- Python bytecode + caches ---
 __pycache__/
 *.py[cod]
