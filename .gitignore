@@ -2,12 +2,13 @@
 # Sea-ice deep fusion project — what NOT to commit.
 #
 # Keep in git: notebooks (.ipynb), generator scripts (make_*.py,
-# crop_*.py, segment_*.py), PDFs, and notebook_output/ (the small
-# comparison figures used in the writeup).
+# crop_*.py, segment_*.py), PDFs, notebook_output/ (small comparison
+# figures), and the SMALL artifacts under runs/ + archive/runs/
+# (test_metrics.json, metrics.csv, confmat.png, loss_curve.png).
 #
 # Everything below this line stays out of the repo because it is
-# either huge raw/processed data, intermediate caches, or local
-# editor/IDE/OS junk.
+# either huge raw/processed data, intermediate caches, model
+# checkpoints, or local editor/IDE/OS junk.
 # ---------------------------------------------------------------
 
 # --- Raw + processed datasets (gigabytes — never push) ---
@@ -24,8 +25,7 @@ outputs_segmented/
 *.7z
 *.rar
 
-# --- Trained model checkpoints / training run artifacts ---
-runs/
+# --- Trained model checkpoints (large) ---
 checkpoints/
 *.pth
 *.pt
@@ -33,7 +33,15 @@ checkpoints/
 *.onnx
 *.safetensors
 
-# --- Random screenshots / scratch images at the repo root ---
+# --- Training caches that get regenerated on each run ---
+**/csv_normed/
+**/csv_segments/
+
+# --- Heavy CSV manifests (file path listings, regeneratable from
+#     crop_*.py / segment_*.py — the U-Net manifest alone is 34MB) ---
+**/manifest.csv
+
+# --- Random screenshots / scratch images (any depth) ---
 Screenshot_*.jpeg
 Screenshot_*.jpg
 Screenshot_*.png

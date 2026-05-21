@@ -1,0 +1,7 @@
+model,class,support,precision,recall,F1,IoU
+Deep Fusion (no TTA),thick ice,546813119,0.9667,0.971,0.9688,0.9396
+Deep Fusion (no TTA),thin ice,167677975,0.8933,0.8863,0.8898,0.8015
+Deep Fusion (no TTA),water,39238442,0.9792,0.9524,0.9656,0.9335
+Deep Fusion (+ TTA),thick ice,546813119,0.9672,0.9735,0.9704,0.9424
+Deep Fusion (+ TTA),thin ice,167677975,0.9015,0.8884,0.8949,0.8097
+Deep Fusion (+ TTA),water,39238442,0.9824,0.9541,0.968,0.938
