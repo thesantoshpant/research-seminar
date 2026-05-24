@@ -1,208 +1,225 @@
-# Sea Ice Classification &mdash; Deep Fusion of Sentinel-2 Imagery and ICESat-2 Photon Data
+# Multimodal Deep Fusion for Antarctic Sea Ice Classification
 
-Per-pixel classification of Antarctic sea ice as **thick ice**, **thin ice**, or **water** by combining Sentinel-2 RGB imagery with ICESat-2 ATL03 photon measurements.
+This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes — **thick ice**, **thin ice**, and **open water** — by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
 
-> **Headline result:** Test mIoU **0.9010**, macro-F1 **0.9468**, with per-class diagonals 96 / 92 / 96 on the held-out tile T03CWT.
+The framework combines a U-Net image branch (ResNet-18 encoder) with a recurrent photon branch and integrates the two modalities through a deep feature-level fusion stage. On a geographically held-out test tile (T03CWT), the fused model attains a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468**, improving over both unimodal baselines.
 
-![Winner confusion matrix](runs/fusion_winner/confmat.png)
-
----
-
-## Why this matters
-
-Sea ice classification from space is normally done with passive optical imagery alone. That works well for the easy classes (open water vs. solid ice), but **thin ice** is hard &mdash; in the visible spectrum it can look almost identical to thick ice, even though the two have very different physical and climatological properties.
-
-ICESat-2's laser altimeter gives sub-decimeter height precision along narrow ground tracks, which carries genuine information about ice thickness. The hard question is: **can we combine the two so the image fills in where the photons are sparse, and the photons disambiguate what the image cannot see?**
-
-This repository contains the code, trained-model artifacts, and write-up for one answer to that question.
+<p align="center">
+  <img src="runs/fusion_winner/confmat.png" width="480" alt="Confusion matrix of the deep-fusion model on the held-out tile T03CWT"/>
+</p>
 
 ---
 
-## TL;DR
+## Key Results
 
-Three models on identical splits (train: tiles T02CNA + T02CNC, test: tile T03CWT):
+All models are trained on tiles T02CNA and T02CNC and evaluated on the geographically separated tile T03CWT. The split is performed by tile rather than by random patches, providing a strict test of geographic generalization.
 
-| Model | Input | Test mIoU | IoU thick ice | IoU thin ice | IoU water |
-|---|---|---|---|---|---|
-| U-Net (image only) | Sentinel-2 RGB | 0.8704 | 0.9299 | 0.7683 | 0.9130 |
-| LSTM (photon only) | ATL03 segments | 0.6978 | 0.9671 | 0.5427 | 0.5836 |
-| **Deep Fusion (winner)** | both | **0.9010** | **0.9403** | **0.8138** | **0.9489** |
+| Model | Input modality | Test mIoU | IoU (thick ice) | IoU (thin ice) | IoU (water) |
+|:--|:--|:--:|:--:|:--:|:--:|
+| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 |
+| LSTM | ICESat-2 photon | 0.6978 | 0.9671 | 0.5427 | 0.5836 |
+| **Deep Fusion** | **optical + photon** | **0.9010** | **0.9403** | **0.8138** | **0.9489** |
 
-Fusion delivers its biggest gains exactly where the image-only baseline struggles:
+The fusion model yields its largest improvements on the two minority classes, for which the image-only baseline is weakest: thin-ice IoU increases from 0.768 to 0.814 (+4.5 percentage points) and water IoU increases from 0.913 to 0.949 (+3.6 percentage points).
 
-* **Thin ice IoU:** 0.768 (U-Net) &rarr; 0.814 (fusion) &mdash; **+4.5 pp**
-* **Water IoU:**    0.913 (U-Net) &rarr; 0.949 (fusion) &mdash; **+3.6 pp**
-
-For a fuller writeup with confusion matrices, training curves, and sample predictions, see [`project_summary.pdf`](project_summary.pdf).
+A detailed report with per-class precision/recall/F1, confusion matrices, training curves, and sample predictions is provided in [`project_summary.pdf`](project_summary.pdf).
 
 ---
 
-## Data
-
-| Source | What it provides | Where in repo |
-|---|---|---|
-| Sentinel-2 L1C tiles | RGB at 10&nbsp;m resolution; cropped to 128&times;128 patches | `S2_tiff/`, `outputs/` (gitignored, ~10&nbsp;GB) |
-| ICESat-2 ATL03 photons | along-track height + photon counts, 10&nbsp;m segments | `IS2_Corrected_data/*.csv` |
-| Ground-truth masks | per-pixel labels (red = thick ice, blue = thin ice, green = water) | `outputs_segmented/` (gitignored) |
-
-**Tiles used:** `T02CNA`, `T02CNC` (training), `T03CWT` (test, completely held out).
-
-The train/test split is **by tile**, not by random patches, so the test score reflects generalization to a region the model has never seen &mdash; not just adjacent patches from the same scene.
-
----
-
-## Approach
-
-The repository contains three models. They share the same data loaders, splits, and evaluation code; the only thing that varies is the architecture.
-
-### 1. U-Net &mdash; image only
-
-* ResNet-18 encoder, pretrained on ImageNet, decoder produces per-pixel logits.
-* Loss: weighted cross-entropy (class weights inversely proportional to frequency).
-* Notebook: see `archive/notebooks/unet_baseline.ipynb`.
-
-### 2. LSTM &mdash; photon CSV only
-
-The ATL03 CSV files are already aggregated to 10-meter along-track segments. For each patch, we take a window of **5 consecutive segments** (center &plusmn; 2) and feed 8 engineered features per segment to a uni-directional LSTM:
-
-| Feature | Meaning |
-|---|---|
-| `h_cor_mean` | mean corrected photon height |
-| `h_cor_med` | median corrected photon height |
-| `h_diff = mean - med` | within-segment height asymmetry |
-| `rel_height_min_elev` | mean height minus the per-track minimum |
-| `height_sd` | std of photon heights |
-| `pcnth_mean` | mean photon-count height |
-| `pcnt_mean` | mean photon count |
-| `bcnt_mean`, `brate_mean` | mean background photon count & rate |
-
-**Architecture** (mirrors the professor&rsquo;s own Keras notebook):
-
-```
-uni-LSTM(hidden=96, 1 layer, tanh)
-  -> Dropout(0.4)
-  -> Dense(16, ELU) -> Dropout(0.4)
-  -> Dense(16, ELU) -> Dropout(0.4)
-  -> Dense(3, softmax)
-```
-
-**Loss:** `CategoricalFocalCrossentropy(alpha=[0.05, 0.45, 0.60], gamma=2.0)`. Focal loss is critical here &mdash; weighted CE alone causes the model to collapse to "predict thick ice everywhere" because ice dominates ~75&nbsp;% of pixels.
-
-**Hyperparameters:** picked by a 21-config sweep over alpha, gamma, hidden size, learning rate, dropout, sequence length and random seed (one axis varied at a time from a baseline). The winner was `hidden=96` &mdash; everything else stayed close to the professor's defaults. See `lstm_sweep.ipynb`.
-
-### 3. Deep Fusion &mdash; image + LSTM (the winner)
-
-```
-RGB (B,3,128,128) --> U-Net (ResNet-18) ---------> img_feat (B,16,128,128)
-                                                          |
-                                                          v
-                                            cat --> SE attention --> conv --> logits (B,3,128,128)
-                                                          ^
-                                                          |
-CSV (B,5,8) --> uni-LSTM(96) --> last hidden ---> Dense(96->16,elu) + Dense(16->16,elu)
-                                              ---> tile to (B,16,128,128)
-```
-
-The two key design choices:
-
-1. **Hot-load the sweep-winner LSTM weights** into the fusion model instead of training the CSV branch from random init. The LSTM has already learned how to discriminate ice vs. thin ice vs. water from its 8 features &mdash; reusing that knowledge avoids re-learning it inside the more complex joint optimization.
-2. **Fine-tune both branches**, but at different learning rates: the pretrained LSTM weights at **0.1&times;** the rest of the network (1e-5 vs 1e-4). This lets the LSTM adapt slightly to the fusion context without overwriting what it learned on the LSTM-only task.
-
-**Squeeze-and-Excitation attention** rescales each of the 32 fused channels (16 image + 16 CSV) before the final 3&times;3 convolution, letting the model up- or down-weight either modality per sample.
-
-**Loss:** same focal loss as the LSTM-only model. Same train/test split.
-
-The notebook is `fusion_winner.ipynb`; the trained model lives at `runs/fusion_winner/`.
-
----
-
-## Why fusion helps (the ablation story)
-
-| Variant | mIoU | What changed |
-|---|---|---|
-| `fusion_v2` (in archive) | 0.802 | uni-LSTM(96), random init, LR=8.9e-4 &rarr; unstable training |
-| `fusion_v3` (in archive) | 0.895 | Bi-LSTM(128)x2, random init, LR=1e-4 &rarr; capacity helps |
-| `fusion_v4` (in archive) | 0.898 | uni-LSTM(96), **load sweep weights and freeze** &rarr; transfer learning helps |
-| `fusion_winner` (root)   | **0.901** | uni-LSTM(96), **load sweep weights, fine-tune @ 0.1&times; LR** &rarr; the +0.003 that pushed us past 0.90 |
-
-Each step adds capability and each step improves the number. The final mIoU of **0.9010** is achieved with the smaller uni-LSTM rather than the bigger Bi-LSTM &mdash; suggesting that **pretrained features matter more than raw capacity** for this task.
-
----
-
-## Repository layout
+## Repository Structure
 
 ```
 .
-+-- fusion_winner.ipynb        <- the winning model (Deep Fusion)
-+-- lstm_sweep.ipynb            <- 21-config LSTM hyperparameter sweep
-+-- project_summary.pdf         <- plain-language writeup with figures
-+-- methodology_for_friends.pdf <- earlier methodology doc
-+-- results_for_friends.pdf
-+-- sea_ice_deep_fusion_workflow.pdf
-|
-+-- runs/
-|   +-- fusion_winner/          <- mIoU 0.9010 (the headline model)
-|   |   +-- test_metrics.json
-|   |   +-- confmat.png
-|   |   +-- loss_curve.png
-|   |   `-- summary_vs_all.csv
-|   +-- lstm_winner/            <- mIoU 0.6978 (sweep winner, hidden=96)
-|       +-- test_metrics.json
-|       +-- confmat.png
-|       `-- metrics.csv
-|
-+-- archive/                    <- everything we tried that did NOT win
-|   +-- notebooks/              <- old fusion versions, alt LSTMs, etc.
-|   +-- runs/                   <- per-run metrics for each archived experiment
-|   `-- misc/
-|
-+-- IS2_Corrected_data/         <- ICESat-2 ATL03 photon CSVs (input)
-+-- S2_tiff/                    <- Sentinel-2 GeoTIFFs (gitignored; large)
-+-- outputs/                    <- cropped 128x128 RGB patches (gitignored)
-+-- outputs_segmented/          <- ground-truth masks (gitignored)
-+-- papers/                     <- reference PDFs
-|
-+-- crop_all.py, crop_csv.py, crop_one_point.py   <- patch preparation
-`-- segment_all.py, segment_one.py                <- mask generation
+├── fusion_winner.ipynb            Deep-fusion model (primary result)
+├── lstm_sweep.ipynb               21-configuration LSTM hyperparameter sweep
+├── requirements.txt               Python dependencies
+├── project_summary.pdf            Technical report with figures
+│
+├── crop_all.py, crop_csv.py, crop_one_point.py    Patch extraction
+├── segment_all.py, segment_one.py                 Ground-truth mask generation
+│
+├── runs/
+│   ├── fusion_winner/             Deep-fusion outputs (mIoU 0.9010)
+│   │   ├── test_metrics.json
+│   │   ├── confmat.png
+│   │   ├── loss_curve.png
+│   │   └── summary_vs_all.csv
+│   └── lstm_winner/               Photon-only LSTM outputs (mIoU 0.6978)
+│       ├── test_metrics.json
+│       ├── confmat.png
+│       └── metrics.csv
+│
+├── archive/                       Superseded experiments
+│   ├── notebooks/                 Earlier fusion variants and baselines
+│   └── runs/                      Per-run metrics for archived experiments
+│
+├── IS2_Corrected_data/            ICESat-2 ATL03 photon CSV files (input)
+├── S2_tiff/                       Sentinel-2 GeoTIFF scenes (large; not tracked)
+├── outputs/                       Extracted 128x128 RGB patches (not tracked)
+├── outputs_segmented/             Ground-truth segmentation masks (not tracked)
+└── papers/                        Reference literature
 ```
 
-What lives **only locally** (gitignored): raw and processed datasets, model checkpoints (`*.pt`), per-run normalization caches, and the build scripts (`make_*.py`) that regenerate the notebooks/PDFs.
+Large datasets, model checkpoints (`*.pt`), and intermediate caches are excluded from version control via `.gitignore` and must be regenerated or supplied locally.
 
 ---
 
-## Reproducing the results
+## Requirements
 
-1. **Prepare the data**: `IS2_Corrected_data/` should contain the six ATL03 CSV files (gt1r and gt2r beams for each of the three tiles). Sentinel-2 tiffs go in `S2_tiff/`. Run `crop_all.py` then `segment_all.py` to generate the 128&times;128 patches and masks under `outputs/` and `outputs_segmented/`.
+- Python 3.9 or later
+- A CUDA-capable GPU with at least 10 GB of memory (the reported experiments used an NVIDIA RTX A6000)
+- The Python packages listed in [`requirements.txt`](requirements.txt):
 
-2. **Train the LSTM (or load the sweep winner)**: open `lstm_sweep.ipynb` and run all cells. This produces the 21-config sweep, with the winner (`hidden_96`) used downstream.
-
-3. **Train the fusion model**: open `fusion_winner.ipynb` and run all cells. It will hot-load `runs/lstm_sweep/hidden_96/best.pt` (which the sweep notebook produced), fine-tune at 0.1&times; LR, and write its outputs to `runs/fusion_winner/`.
-
-A GPU with ~10&nbsp;GB of memory is sufficient. We trained on an NVIDIA RTX A6000; one fusion training run takes &sim;60&ndash;90 min for 30 epochs.
+```
+torch
+torchvision
+segmentation-models-pytorch
+numpy
+pandas
+pillow
+matplotlib
+scikit-learn
+tqdm
+jupyter
+nbconvert
+```
 
 ---
 
-## Citation & acknowledgments
+## Installation
 
-* **Course:** Research Seminar, Knox College.
-* **ICESat-2** photon products from NASA NSIDC.
-* **Sentinel-2** imagery from ESA Copernicus.
-* The ICESat-2 ATL03 preprocessing follows the professor's reference notebook (`notebook_output/3_ATL03_prepare_data_LSTM_training_2025_cor_label (1).ipynb`).
+```bash
+# 1. Clone the repository
+git clone https://github.com/Santoshpant23/research-seminar.git
+cd research-seminar
 
-If you build on this work, please cite the corresponding paper (in preparation).
+# 2. (Recommended) Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate        # On Windows: .venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+```
+
+For GPU acceleration, install the build of PyTorch that matches your CUDA version, following the official instructions at https://pytorch.org/get-started/locally/.
 
 ---
 
-## Status
+## Usage
 
-| Step | Status |
-|---|---|
-| Data preparation | done |
-| U-Net baseline | done |
-| LSTM hyperparameter sweep (21 configs) | done |
-| Deep fusion training + ablations (v2&ndash;v5) | done |
-| Final winner: hot-loaded + fine-tuned fusion model | done |
-| Project summary PDF | in `project_summary.pdf` |
-| Paper writeup | in preparation |
+The pipeline runs in three stages: data preparation, photon-branch training, and fusion-model training. Each notebook defines its input and output paths in a configuration cell near the top; adjust these to match your environment before execution.
 
-For the per-class precision / recall / F1 breakdown, training curves, and sample predictions, open [`project_summary.pdf`](project_summary.pdf).
+### 1. Prepare the dataset
+
+Place the ICESat-2 ATL03 photon CSV files in `IS2_Corrected_data/` and the Sentinel-2 GeoTIFF scenes in `S2_tiff/`, then extract aligned image patches and generate the corresponding segmentation masks:
+
+```bash
+python crop_all.py          # extract 128x128 RGB patches centered on labeled points
+python segment_all.py       # generate per-pixel ground-truth masks
+```
+
+This produces the paired patches and masks under `outputs/` and `outputs_segmented/`.
+
+### 2. Train the photon-only LSTM
+
+Execute the hyperparameter sweep, which trains the recurrent photon branch and selects the best configuration:
+
+```bash
+jupyter nbconvert --to notebook --execute lstm_sweep.ipynb
+```
+
+Alternatively, open `lstm_sweep.ipynb` in Jupyter and run all cells interactively. The selected configuration and its checkpoint are written under `runs/`.
+
+### 3. Train the deep-fusion model
+
+Execute the fusion notebook, which loads the trained LSTM branch, combines it with the U-Net image branch, and fine-tunes the complete model:
+
+```bash
+jupyter nbconvert --to notebook --execute fusion_winner.ipynb
+```
+
+The trained model, confusion matrix, loss curves, and evaluation metrics are written to `runs/fusion_winner/`. The final per-class metrics are recorded in `runs/fusion_winner/test_metrics.json`.
+
+> **Note.** The notebooks are configured to use a single GPU. Set the device with the `CUDA_VISIBLE_DEVICES` environment variable (for example, `CUDA_VISIBLE_DEVICES=0`) before launching. One fusion training run of 30 epochs requires approximately 60–90 minutes on an RTX A6000.
+
+---
+
+## Methodology
+
+The framework comprises two modality-specific branches whose representations are integrated through a deep fusion stage.
+
+### Image branch (U-Net)
+
+Each 128x128 RGB patch is processed by a U-Net with a ResNet-18 encoder pretrained on ImageNet. The decoder restores the original spatial resolution and produces a 16-channel feature map of shape (16, 128, 128).
+
+### Photon branch (LSTM)
+
+The ATL03 records are aggregated into 10-meter along-track segments. For each labeled location, a sliding window of five consecutive segments (the center segment and two neighbors on each side) is formed, and eight engineered features are extracted per segment:
+
+| Feature | Description |
+|:--|:--|
+| `h_cor_mean` | Mean corrected photon height |
+| `h_cor_med` | Median corrected photon height |
+| `h_diff` | Difference between mean and median height (within-segment asymmetry) |
+| `rel_height_min_elev` | Mean height relative to the per-track minimum |
+| `height_sd` | Standard deviation of photon heights |
+| `pcnth_mean` | Mean photon-count height |
+| `pcnt_mean` | Mean photon count |
+| `bcnt_mean`, `brate_mean` | Mean background photon count and background rate |
+
+The sequence is processed by a single-layer recurrent network (hidden dimension 96, dropout 0.4) followed by fully connected layers and a softmax classification head. The branch is trained with categorical focal loss (alpha = [0.05, 0.45, 0.60], gamma = 2.0), which prevents the model from collapsing onto the dominant thick-ice class. The configuration was selected by a 21-run sweep over the loss weights, gamma, hidden dimension, learning rate, dropout, sequence length, and random seed.
+
+### Fusion stage
+
+The photon feature vector is projected to 16 channels and broadcast across the spatial grid, then concatenated with the U-Net feature map to form a 32-channel tensor. A Squeeze-and-Excitation block (reduction ratio 8) performs channel-wise recalibration, and a final 1x1 convolution produces the three-class per-pixel logits. The pretrained photon branch is fine-tuned within the fusion model at one-tenth of the base learning rate, allowing it to adapt to the fusion context while retaining the representations learned during standalone training.
+
+---
+
+## Ablation Study
+
+The following variants quantify the contribution of each design decision. All are evaluated on the held-out tile T03CWT.
+
+| Variant | mIoU | Configuration |
+|:--|:--:|:--|
+| `fusion_v2` | 0.8020 | Photon branch trained from random initialization (unstable) |
+| `fusion_v3` | 0.8949 | Higher-capacity recurrent branch, random initialization |
+| `fusion_v4` | 0.8982 | Pretrained photon branch, frozen during fusion |
+| **`fusion_winner`** | **0.9010** | Pretrained photon branch, fine-tuned at 0.1x learning rate |
+
+The strongest result is obtained with the smaller pretrained-and-fine-tuned recurrent branch rather than the larger randomly initialized one, indicating that transferred representations contribute more than additional model capacity for this task. The archived variants and their metrics are available under `archive/`.
+
+---
+
+## Dataset
+
+| Source | Description |
+|:--|:--|
+| Sentinel-2 Level-1C | Optical RGB imagery at 10-meter resolution over the Ross Sea region |
+| ICESat-2 ATL03 | Geolocated photon point clouds aggregated to 10-meter along-track segments |
+| Ground-truth masks | Per-pixel labels generated by an HSV color-thresholding pipeline with cloud and shadow removal |
+
+Class encoding in the masks: red = thick ice, blue = thin ice, green = open water.
+
+---
+
+## Citation and Acknowledgments
+
+This work was conducted as part of the Research Seminar at Knox College. We thank Prof. Iqrah for guidance throughout the project.
+
+- ICESat-2 ATL03 products: NASA National Snow and Ice Data Center (NSIDC)
+- Sentinel-2 imagery: ESA Copernicus Programme
+
+A corresponding manuscript is in preparation. Please cite that work if you build upon this repository.
+
+---
+
+## Project Status
+
+| Component | Status |
+|:--|:--|
+| Data preparation pipeline | Complete |
+| U-Net optical baseline | Complete |
+| LSTM photon baseline and hyperparameter sweep | Complete |
+| Deep-fusion model and ablation study | Complete |
+| Technical report (`project_summary.pdf`) | Complete |
+| Manuscript | In preparation |
