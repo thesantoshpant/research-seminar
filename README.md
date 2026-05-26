@@ -5,7 +5,7 @@ This repository contains the source code, trained-model artifacts, and documenta
 The framework combines a U-Net image branch (ResNet-18 encoder) with a recurrent photon branch and integrates the two modalities through a deep feature-level fusion stage. On a geographically held-out test tile (T03CWT), the fused model attains a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468**, improving over both unimodal baselines.
 
 <p align="center">
-  <img src="runs/fusion_winner/confmat.png" width="480" alt="Confusion matrix of the deep-fusion model on the held-out tile T03CWT"/>
+  <img src="runs/deep_fusion/confmat.png" width="480" alt="Confusion matrix of the deep-fusion model on the held-out tile T03CWT"/>
 </p>
 
 ---
@@ -30,7 +30,7 @@ A detailed report with per-class precision/recall/F1, confusion matrices, traini
 
 ```
 .
-├── fusion_winner.ipynb            Deep-fusion model (primary result)
+├── deep_fusion.ipynb              Deep-fusion model (primary result)
 ├── lstm_sweep.ipynb               21-configuration LSTM hyperparameter sweep
 ├── requirements.txt               Python dependencies
 ├── project_summary.pdf            Technical report with figures
@@ -39,12 +39,12 @@ A detailed report with per-class precision/recall/F1, confusion matrices, traini
 ├── segment_all.py, segment_one.py                 Ground-truth mask generation
 │
 ├── runs/
-│   ├── fusion_winner/             Deep-fusion outputs (mIoU 0.9010)
+│   ├── deep_fusion/               Deep-fusion outputs (mIoU 0.9010)
 │   │   ├── test_metrics.json
 │   │   ├── confmat.png
 │   │   ├── loss_curve.png
 │   │   └── summary_vs_all.csv
-│   └── lstm_winner/               Photon-only LSTM outputs (mIoU 0.6978)
+│   └── bilstm/                    Photon-only LSTM outputs (mIoU 0.6978)
 │       ├── test_metrics.json
 │       ├── confmat.png
 │       └── metrics.csv
@@ -135,10 +135,10 @@ Alternatively, open `lstm_sweep.ipynb` in Jupyter and run all cells interactivel
 Execute the fusion notebook, which loads the trained LSTM branch, combines it with the U-Net image branch, and fine-tunes the complete model:
 
 ```bash
-jupyter nbconvert --to notebook --execute fusion_winner.ipynb
+jupyter nbconvert --to notebook --execute deep_fusion.ipynb
 ```
 
-The trained model, confusion matrix, loss curves, and evaluation metrics are written to `runs/fusion_winner/`. The final per-class metrics are recorded in `runs/fusion_winner/test_metrics.json`.
+The trained model, confusion matrix, loss curves, and evaluation metrics are written to `runs/deep_fusion/`. The final per-class metrics are recorded in `runs/deep_fusion/test_metrics.json`.
 
 > **Note.** The notebooks are configured to use a single GPU. Set the device with the `CUDA_VISIBLE_DEVICES` environment variable (for example, `CUDA_VISIBLE_DEVICES=0`) before launching. One fusion training run of 30 epochs requires approximately 60–90 minutes on an RTX A6000.
 
@@ -184,7 +184,7 @@ The following variants quantify the contribution of each design decision. All ar
 | `fusion_v2` | 0.8020 | Photon branch trained from random initialization (unstable) |
 | `fusion_v3` | 0.8949 | Higher-capacity recurrent branch, random initialization |
 | `fusion_v4` | 0.8982 | Pretrained photon branch, frozen during fusion |
-| **`fusion_winner`** | **0.9010** | Pretrained photon branch, fine-tuned at 0.1x learning rate |
+| **`deep_fusion`** | **0.9010** | Pretrained photon branch, fine-tuned at 0.1x learning rate |
 
 The strongest result is obtained with the smaller pretrained-and-fine-tuned recurrent branch rather than the larger randomly initialized one, indicating that transferred representations contribute more than additional model capacity for this task. The archived variants and their metrics are available under `archive/`.
 
