@@ -205,6 +205,19 @@ Class encoding in the masks: red = thick ice, blue = thin ice, green = open wate
 
 ---
 
+## Future Directions
+
+Several extensions of this work are planned or under consideration:
+
+- **Temporal fusion.** Incorporating multi-date Sentinel-2 composites and ICESat-2 repeat-track acquisitions to model seasonal ice dynamics and detect change over time.
+- **SAR integration.** Adding Sentinel-1 C-band synthetic aperture radar backscatter as a third modality, which is unaffected by cloud cover and provides complementary structural information about ice surface roughness.
+- **Finer ice-type taxonomy.** Expanding the three-class scheme (thick ice / thin ice / open water) to include first-year ice, multi-year ice, and mixed-phase categories, guided by ship-based or airborne validation data.
+- **Arctic transferability.** Evaluating zero-shot and fine-tuned transfer of the trained model to Arctic scenes, where ice dynamics and sensor viewing geometries differ from the Ross Sea.
+- **Uncertainty quantification.** Applying Monte Carlo dropout or ensemble methods to produce per-pixel confidence estimates, enabling downstream decision-makers to flag low-confidence regions for human review.
+- **Operational deployment.** Packaging the pipeline as a cloud-native inference service that ingests new satellite acquisitions and produces near-real-time sea-ice maps without manual intervention.
+
+---
+
 ## Citation and Acknowledgments
 
 This work was conducted as part of the Research Seminar at Knox College. We thank Prof. Iqrah for guidance throughout the project.
