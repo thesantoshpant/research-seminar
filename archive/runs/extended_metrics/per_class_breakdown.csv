@@ -1,13 +1,13 @@
 model,class,support,precision,recall,F1,IoU
 U-Net (image only),ice,546813119,0.9533,0.9743,0.9637,0.9299
 U-Net (image only),thin_ice,167677975,0.8995,0.8404,0.869,0.7683
-U-Net (image only),open water,39238442,0.9677,0.9417,0.9545,0.913
+U-Net (image only),water,39238442,0.9677,0.9417,0.9545,0.913
 Bi-LSTM (CSV only),ice,546813119,0.7255,0.9999,0.8409,0.7254
 Bi-LSTM (CSV only),thin_ice,167677975,0.0,0.0,0.0,0.0
-Bi-LSTM (CSV only),open water,39238442,0.1907,0.0005,0.001,0.0005
+Bi-LSTM (CSV only),water,39238442,0.1907,0.0005,0.001,0.0005
 Deep fusion,ice,546813119,0.9667,0.971,0.9688,0.9396
 Deep fusion,thin_ice,167677975,0.8933,0.8863,0.8898,0.8015
-Deep fusion,open water,39238442,0.9792,0.9524,0.9656,0.9335
+Deep fusion,water,39238442,0.9792,0.9524,0.9656,0.9335
 Late fusion (alpha),ice,546813119,0.9533,0.9743,0.9637,0.9299
 Late fusion (alpha),thin_ice,167677975,0.8995,0.8404,0.869,0.7683
-Late fusion (alpha),open water,39238442,0.9677,0.9417,0.9545,0.913
+Late fusion (alpha),water,39238442,0.9677,0.9417,0.9545,0.913

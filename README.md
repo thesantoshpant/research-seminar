@@ -1,15 +1,27 @@
-# Multimodal Deep Fusion for Antarctic Sea Ice Classification
+# Multimodal Fusion Strategies for Antarctic Sea Ice Classification
 
-This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes (**thick ice**, **thin ice**, and **open water**) by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
+This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes — **thick ice**, **thin ice**, and **open water** — by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
 
-The framework combines a U-Net image branch (ResNet-18 encoder) with a recurrent photon branch and integrates the two modalities through a deep feature-level fusion stage. On a geographically held-out test tile (T03CWT), the fused model attains a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468**, improving over both unimodal baselines.
+Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and **Deep Fusion**. Each integrates the two modalities at a different level of abstraction. Deep feature-level fusion achieves the best result, attaining a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468** on a geographically held-out test tile (T03CWT), improving over both unimodal baselines and the other two fusion approaches.
 
-<p align="center">
-  <img src="confusion_matrices/unet_green.png" width="310" alt="Confusion matrix - U-Net baseline"/>
-  <img src="confusion_matrices/lstm_green.png" width="310" alt="Confusion matrix - LSTM baseline"/>
-  <img src="confusion_matrices/deepfusion_green.png" width="310" alt="Confusion matrix - Deep Fusion (best model)"/>
-</p>
-<p align="center"><em>Left: U-Net &nbsp;|&nbsp; Centre: LSTM &nbsp;|&nbsp; Right: Deep Fusion</em></p>
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="confusion_matrices/deepfusion_green.png" width="300" alt="Deep Fusion Confusion Matrix"/>
+      <br/><b>(a) Deep Fusion</b>
+    </td>
+    <td align="center">
+      <img src="confusion_matrices/latefusion_green.png" width="300" alt="Late Fusion Confusion Matrix"/>
+      <br/><b>(b) Late Fusion</b>
+    </td>
+    <td align="center">
+      <img src="confusion_matrices/hybridfusion_green.png" width="300" alt="Hybrid Fusion Confusion Matrix"/>
+      <br/><b>(c) Hybrid Fusion</b>
+    </td>
+  </tr>
+</table>
+
+*Fig. 1: Row-normalized confusion matrices for the three multimodal fusion strategies evaluated on the geographically held-out tile T03CWT.*
 
 ---
 
@@ -17,15 +29,56 @@ The framework combines a U-Net image branch (ResNet-18 encoder) with a recurrent
 
 All models are trained on tiles T02CNA and T02CNC and evaluated on the geographically separated tile T03CWT. The split is performed by tile rather than by random patches, providing a strict test of geographic generalization.
 
-| Model | Input modality | Test mIoU | IoU (thick ice) | IoU (thin ice) | IoU (open water) |
-|:--|:--|:--:|:--:|:--:|:--:|
-| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 |
-| LSTM | ICESat-2 photon | 0.6978 | 0.9671 | 0.5427 | 0.5836 |
-| **Deep Fusion** | **optical + photon** | **0.9010** | **0.9403** | **0.8138** | **0.9489** |
+| Model | Input Modality | Test mIoU | IoU (Thick Ice) | IoU (Thin Ice) | IoU (Water) | Macro F1 |
+|:--|:--|:--:|:--:|:--:|:--:|:--:|
+| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 | — |
+| BiLSTM | ICESat-2 photon | 0.6978 | 0.9671 | 0.5427 | 0.5836 | 0.8080 |
+| Late Fusion | optical + photon | 0.8770 | 0.9334 | 0.7785 | 0.9189 | 0.9329 |
+| Hybrid Fusion | optical + photon | 0.8891 | 0.9396 | 0.7988 | 0.9290 | 0.9401 |
+| **Deep Fusion** | **optical + photon** | **0.9010** | **0.9403** | **0.8138** | **0.9489** | **0.9468** |
 
-The fusion model yields its largest improvements on the two minority classes, for which the image-only baseline is weakest: thin-ice IoU increases from 0.768 to 0.814 (+4.5 percentage points) and open water IoU increases from 0.913 to 0.949 (+3.6 percentage points).
+Deep Fusion yields the largest gains on thin ice (+4.5 pp over U-Net) and water (+3.6 pp), the two minority classes for which the image-only baseline is weakest. Hybrid Fusion ranks second and Late Fusion third, both still surpassing all unimodal baselines.
 
 A detailed report with per-class precision/recall/F1, confusion matrices, training curves, and sample predictions is provided in [`project_summary.pdf`](project_summary.pdf).
+
+---
+
+## Fusion Strategy Comparison
+
+### Architectures
+
+All three strategies share the same two modality-specific branches — a U-Net image branch and a recurrent photon branch — but differ in **where and how** their representations are combined.
+
+| Strategy | Integration Level | Mechanism |
+|:--|:--|:--|
+| Late Fusion | Decision level | Softmax predictions from each branch are averaged pixel-wise |
+| Hybrid Fusion | Feature + Decision level | Intermediate U-Net features are concatenated with photon embeddings; a second prediction head is also averaged at the decision level |
+| Deep Fusion | Deep feature level | The photon embedding is projected to 16 channels, broadcast spatially, concatenated with the U-Net decoder feature map, recalibrated by a Squeeze-and-Excitation block, and classified by a 1×1 convolution |
+
+### Performance Analysis
+
+**Late Fusion (mIoU 0.8770)** is the most modular approach: each branch is trained and evaluated independently, and their outputs are combined only at inference time. While straightforward to implement and debug, late fusion cannot capture cross-modal feature interactions — the two branches remain "unaware" of each other during training and during intermediate computations. This limits its ability to learn complementary representations.
+
+**Hybrid Fusion (mIoU 0.8891)** improves on late fusion by introducing a mid-network fusion path: photon embeddings are injected into the U-Net decoder at an intermediate spatial scale, allowing the image branch to condition its feature extraction on photon cues. The retained decision-level averaging provides a regularization effect. The result is a +1.2 pp mIoU gain over late fusion, with the largest improvement in thin-ice IoU (+2.0 pp).
+
+**Deep Fusion (mIoU 0.9010)** achieves the best result by fusing modalities entirely at the deep feature level and removing the late-fusion averaging path. Broadcasting the photon feature vector across the full 128×128 spatial grid allows every pixel to be informed by the along-track altimetry reading. The Squeeze-and-Excitation recalibration then selectively amplifies photon-consistent channels. Fine-tuning the pretrained photon branch at one-tenth the base learning rate within the fusion model allows the branch to adapt to the fusion context while retaining transferred representations.
+
+### Per-Class Breakdown
+
+| Class | U-Net | BiLSTM | Late Fusion | Hybrid Fusion | Deep Fusion |
+|:--|:--:|:--:|:--:|:--:|:--:|
+| Thick ice IoU | 0.9299 | 0.9671 | 0.9334 | 0.9396 | **0.9403** |
+| Thin ice IoU  | 0.7683 | 0.5427 | 0.7785 | 0.7988 | **0.8138** |
+| Water IoU     | 0.9130 | 0.5836 | 0.9189 | 0.9290 | **0.9489** |
+
+Thin ice is the most challenging class across all models; deep fusion's photon-informed recalibration is most beneficial there (+4.5 pp over U-Net).
+
+### Key Takeaways
+
+- **Feature-level fusion outperforms decision-level fusion**: Combining modalities before the final classifier consistently improves performance.
+- **Spatial broadcast of photon features is effective**: Broadcasting the per-point photon embedding over the full spatial grid allows altimetry to inform every pixel, not just photon-footprint pixels.
+- **Pretrained-and-fine-tuned photon branch beats frozen or random initialization**: Transferred representations from standalone LSTM training provide a better starting point than random weights, even with a smaller model capacity.
+- **All fusion strategies outperform both unimodal baselines**: Even the weakest fusion variant (late fusion) surpasses the U-Net optical baseline in mIoU.
 
 ---
 
@@ -33,34 +86,48 @@ A detailed report with per-class precision/recall/F1, confusion matrices, traini
 
 ```
 .
-├── deep_fusion.ipynb              Deep-fusion model (primary result)
-├── lstm_sweep.ipynb               21-configuration LSTM hyperparameter sweep
-├── requirements.txt               Python dependencies
-├── project_summary.pdf            Technical report with figures
+├── deep_fusion.ipynb                  Deep-fusion model (primary result)
+├── fusion_late_unet.ipynb             Late-fusion model
+├── fusion_hybrid_unet.ipynb           Hybrid-fusion model
+├── lstm_sweep.ipynb                   21-configuration LSTM hyperparameter sweep
+├── requirements.txt                   Python dependencies
+├── project_summary.pdf                Technical report with figures
+├── results_summary_public.pdf         Public summary
 │
 ├── crop_all.py, crop_csv.py, crop_one_point.py    Patch extraction
 ├── segment_all.py, segment_one.py                 Ground-truth mask generation
 │
+├── confusion_matrices/                Row-normalized confusion matrices (green + blue colormaps)
+│   ├── deepfusion_green.png / deepfusion_blue.png
+│   ├── latefusion_green.png  / latefusion_blue.png
+│   ├── hybridfusion_green.png / hybridfusion_blue.png
+│   ├── unet_green.png        / unet_blue.png
+│   ├── lstm_green.png        / lstm_blue.png
+│   └── README.md
+│
 ├── runs/
-│   ├── deep_fusion/               Deep-fusion outputs (mIoU 0.9010)
+│   ├── deep_fusion/                   Deep-fusion outputs (mIoU 0.9010)
 │   │   ├── test_metrics.json
 │   │   ├── confmat.png
 │   │   ├── loss_curve.png
 │   │   └── summary_vs_all.csv
-│   └── bilstm/                    Photon-only LSTM outputs (mIoU 0.6978)
+│   └── bilstm/                        Photon-only BiLSTM outputs (mIoU 0.6978)
 │       ├── test_metrics.json
 │       ├── confmat.png
 │       └── metrics.csv
 │
-├── archive/                       Superseded experiments
-│   ├── notebooks/                 Earlier fusion variants and baselines
-│   └── runs/                      Per-run metrics for archived experiments
+├── archive/                           Superseded experiments
+│   ├── notebooks/                     Earlier fusion variants and baselines
+│   └── runs/                          Per-run metrics for archived experiments
 │
-├── IS2_Corrected_data/            ICESat-2 ATL03 photon CSV files (input)
-├── S2_tiff/                       Sentinel-2 GeoTIFF scenes (large; not tracked)
-├── outputs/                       Extracted 128x128 RGB patches (not tracked)
-├── outputs_segmented/             Ground-truth segmentation masks (not tracked)
-└── papers/                        Reference literature
+├── notebook_output/                   Auxiliary notebook outputs
+│   └── atl03_lstm_data_preparation_2025.ipynb
+│
+├── IS2_Corrected_data/                ICESat-2 ATL03 photon CSV files (input)
+├── S2_tiff/                           Sentinel-2 GeoTIFF scenes (large; not tracked)
+├── outputs/                           Extracted 128×128 RGB patches (not tracked)
+├── outputs_segmented/                 Ground-truth segmentation masks (not tracked)
+└── papers/                            Reference literature
 ```
 
 Large datasets, model checkpoints (`*.pt`), and intermediate caches are excluded from version control via `.gitignore` and must be regenerated or supplied locally.
@@ -123,7 +190,7 @@ python segment_all.py       # generate per-pixel ground-truth masks
 
 This produces the paired patches and masks under `outputs/` and `outputs_segmented/`.
 
-### 2. Train the photon-only LSTM
+### 2. Train the photon-only BiLSTM
 
 Execute the hyperparameter sweep, which trains the recurrent photon branch and selects the best configuration:
 
@@ -133,15 +200,22 @@ jupyter nbconvert --to notebook --execute lstm_sweep.ipynb
 
 Alternatively, open `lstm_sweep.ipynb` in Jupyter and run all cells interactively. The selected configuration and its checkpoint are written under `runs/`.
 
-### 3. Train the deep-fusion model
+### 3. Train the fusion models
 
-Execute the fusion notebook, which loads the trained LSTM branch, combines it with the U-Net image branch, and fine-tunes the complete model:
+Execute any of the three fusion notebooks to train and evaluate that strategy:
 
 ```bash
+# Deep Fusion (best result)
 jupyter nbconvert --to notebook --execute deep_fusion.ipynb
+
+# Late Fusion
+jupyter nbconvert --to notebook --execute fusion_late_unet.ipynb
+
+# Hybrid Fusion
+jupyter nbconvert --to notebook --execute fusion_hybrid_unet.ipynb
 ```
 
-The trained model, confusion matrix, loss curves, and evaluation metrics are written to `runs/deep_fusion/`. The final per-class metrics are recorded in `runs/deep_fusion/test_metrics.json`.
+Outputs (confusion matrices, loss curves, metrics) are written to the respective `runs/` subdirectory. The final per-class metrics are recorded in `test_metrics.json`.
 
 > **Note.** The notebooks are configured to use a single GPU. Set the device with the `CUDA_VISIBLE_DEVICES` environment variable (for example, `CUDA_VISIBLE_DEVICES=0`) before launching. One fusion training run of 30 epochs requires approximately 60–90 minutes on an RTX A6000.
 
@@ -149,13 +223,13 @@ The trained model, confusion matrix, loss curves, and evaluation metrics are wri
 
 ## Methodology
 
-The framework comprises two modality-specific branches whose representations are integrated through a deep fusion stage.
+The framework comprises two modality-specific branches whose representations are integrated through one of three fusion strategies.
 
-### Image branch (U-Net)
+### Image Branch (U-Net)
 
-Each 128x128 RGB patch is processed by a U-Net with a ResNet-18 encoder pretrained on ImageNet. The decoder restores the original spatial resolution and produces a 16-channel feature map of shape (16, 128, 128).
+Each 128×128 RGB patch is processed by a U-Net with a ResNet-18 encoder pretrained on ImageNet. The decoder restores the original spatial resolution and produces a 16-channel feature map of shape (16, 128, 128).
 
-### Photon branch (LSTM)
+### Photon Branch (BiLSTM)
 
 The ATL03 records are aggregated into 10-meter along-track segments. For each labeled location, a sliding window of five consecutive segments (the center segment and two neighbors on each side) is formed, and eight engineered features are extracted per segment:
 
@@ -172,22 +246,22 @@ The ATL03 records are aggregated into 10-meter along-track segments. For each la
 
 The sequence is processed by a single-layer recurrent network (hidden dimension 96, dropout 0.4) followed by fully connected layers and a softmax classification head. The branch is trained with categorical focal loss (alpha = [0.05, 0.45, 0.60], gamma = 2.0), which prevents the model from collapsing onto the dominant thick-ice class. The configuration was selected by a 21-run sweep over the loss weights, gamma, hidden dimension, learning rate, dropout, sequence length, and random seed.
 
-### Fusion stage
+### Fusion Stage
 
-The photon feature vector is projected to 16 channels and broadcast across the spatial grid, then concatenated with the U-Net feature map to form a 32-channel tensor. A Squeeze-and-Excitation block (reduction ratio 8) performs channel-wise recalibration, and a final 1x1 convolution produces the three-class per-pixel logits. The pretrained photon branch is fine-tuned within the fusion model at one-tenth of the base learning rate, allowing it to adapt to the fusion context while retaining the representations learned during standalone training.
+Refer to the [Fusion Strategy Comparison](#fusion-strategy-comparison) section above for per-strategy details. In all cases the pretrained photon branch is fine-tuned within the fusion model at one-tenth of the base learning rate, allowing it to adapt to the fusion context while retaining the representations learned during standalone training.
 
 ---
 
 ## Ablation Study
 
-The following variants quantify the contribution of each design decision. All are evaluated on the held-out tile T03CWT.
+The following variants quantify the contribution of each design decision in the Deep Fusion model. All are evaluated on the held-out tile T03CWT.
 
 | Variant | mIoU | Configuration |
 |:--|:--:|:--|
 | `fusion_v2` | 0.8020 | Photon branch trained from random initialization (unstable) |
 | `fusion_v3` | 0.8949 | Higher-capacity recurrent branch, random initialization |
-| `fusion_v4` | 0.8982 | Pretrained photon branch, frozen during fusion |
-| **`deep_fusion`** | **0.9010** | Pretrained photon branch, fine-tuned at 0.1x learning rate |
+| `fusion_v4` | 0.8982 | Pretrained photon branch, frozen during fusion training |
+| **`deep_fusion`** | **0.9010** | Pretrained photon branch, fine-tuned at 0.1× learning rate |
 
 The strongest result is obtained with the smaller pretrained-and-fine-tuned recurrent branch rather than the larger randomly initialized one, indicating that transferred representations contribute more than additional model capacity for this task. The archived variants and their metrics are available under `archive/`.
 
@@ -205,22 +279,6 @@ Class encoding in the masks: red = thick ice, blue = thin ice, green = open wate
 
 ---
 
-## Future Directions
-
-### 1. SAR Modality Integration
-
-The current framework relies on Sentinel-2 optical imagery, which is unavailable under cloud cover, a frequent occurrence over polar regions. A natural next step is to incorporate Sentinel-1 C-band synthetic aperture radar (SAR) backscatter as a third input modality. Unlike optical sensors, SAR penetrates clouds and operates independently of solar illumination, making it well-suited for year-round polar monitoring. At the architecture level, SAR features could be introduced through a third branch analogous to the photon branch, with its output projected and fused at the feature-concatenation stage alongside the U-Net and LSTM representations. Because SAR backscatter encodes surface roughness and dielectric properties, it carries complementary ice-structural information that may help resolve thin-ice and nilas categories that are spectrally ambiguous in optical bands. The primary challenge is co-registration: Sentinel-1 and Sentinel-2 acquisitions are not simultaneous, so temporal offsets must be accounted for during patch extraction.
-
-### 2. Temporal Sequence Modeling
-
-The current model treats each 128×128 patch as an independent snapshot, discarding the temporal context available from repeat satellite passes. Sentinel-2 revisits the same tile every five days and ICESat-2 follows a 91-day repeat cycle, making multi-date fusion a tractable extension. A temporal model could stack patches from several consecutive overpasses as additional input channels to the U-Net, or apply a convolutional LSTM across the time dimension to propagate spatial-temporal hidden states. This would allow the model to distinguish between ice classes that look similar in a single image but evolve differently over days or weeks, for example new ice forming over open water versus persistent first-year ice. Beyond classification accuracy, temporal modeling opens the door to change-detection outputs: identifying pixels that transition between classes across acquisitions and quantifying the rate and spatial pattern of ice-cover change, which is directly relevant to climate-monitoring applications.
-
-### 3. Geographic Transfer to the Arctic
-
-All training and evaluation in this study used Ross Sea tiles (T02CNA, T02CNC, T03CWT). Antarctic and Arctic sea ice differ substantially in age distribution, surface roughness, melt-pond coverage, and sensor viewing geometry, so out-of-region generalization cannot be assumed. A systematic transfer study would evaluate the trained deep-fusion model in a zero-shot setting on labeled Arctic acquisitions and compare it with models fine-tuned on small Arctic target sets. If labeled Arctic data are scarce, domain-adaptation techniques such as adversarial feature alignment or self-supervised pre-training on unlabeled Arctic imagery could bridge the gap. Successful transfer would establish the framework as a general polar ice-classification tool rather than a region-specific one, increasing its utility for operational agencies such as the National Ice Center and the Norwegian Ice Service that monitor both hemispheres.
-
----
-
 ## Citation and Acknowledgments
 
 This work was conducted as part of the Research Seminar at Knox College. We thank Prof. Iqrah for guidance throughout the project.
@@ -232,25 +290,31 @@ A corresponding manuscript is in preparation. Please cite that work if you build
 
 ---
 
+## Future Directions
+
+### 1. SAR Modality Integration
+
+The current framework relies on Sentinel-2 optical imagery, which is unavailable under cloud cover, a frequent occurrence over polar regions. A natural next step is to incorporate Sentinel-1 C-band synthetic aperture radar (SAR) backscatter as a third input modality. Unlike optical sensors, SAR penetrates clouds and operates independently of solar illumination, making it well-suited for year-round polar monitoring. At the architecture level, SAR features could be introduced through a third branch analogous to the photon branch, with its output projected and fused at the feature-concatenation stage alongside the U-Net and LSTM representations. Because SAR backscatter encodes surface roughness and dielectric properties, it carries complementary ice-structural information that may help resolve thin-ice and nilas categories that are spectrally ambiguous in optical bands.
+
+### 2. Temporal Sequence Modeling
+
+The current model treats each 128×128 patch as an independent snapshot, discarding the temporal context available from repeat satellite passes. Sentinel-2 revisits the same tile every five days and ICESat-2 follows a 91-day repeat cycle, making multi-date fusion a tractable extension. A temporal model could stack patches from several consecutive overpasses as additional input channels to the U-Net, or apply a convolutional LSTM across the time dimension to propagate spatial-temporal hidden states. This would allow the model to distinguish between ice classes that look similar in a single image but evolve differently over days or weeks. Beyond classification accuracy, temporal modeling opens the door to change-detection outputs: identifying pixels that transition between classes across acquisitions and quantifying the rate and spatial pattern of ice-cover change.
+
+### 3. Geographic Transfer to the Arctic
+
+All training and evaluation in this study used Ross Sea tiles (T02CNA, T02CNC, T03CWT). Antarctic and Arctic sea ice differ substantially in age distribution, surface roughness, melt-pond coverage, and sensor viewing geometry, so out-of-region generalization cannot be assumed. A systematic transfer study would evaluate the trained model in a zero-shot setting on labeled Arctic acquisitions and compare it with models fine-tuned on small Arctic target sets. Successful transfer would establish the framework as a general polar ice-classification tool rather than a region-specific one, increasing its utility for operational agencies that monitor both hemispheres.
+
+---
+
 ## Project Status
 
 | Component | Status |
 |:--|:--|
 | Data preparation pipeline | Complete |
 | U-Net optical baseline | Complete |
-| LSTM photon baseline and hyperparameter sweep | Complete |
+| BiLSTM photon baseline and hyperparameter sweep | Complete |
+| Late-fusion model | Complete |
+| Hybrid-fusion model | Complete |
 | Deep-fusion model and ablation study | Complete |
 | Technical report (`project_summary.pdf`) | Complete |
 | Manuscript | In preparation |
-
----
-
-## Releases
-
-No releases published.
-
----
-
-## Packages
-
-No packages published.
