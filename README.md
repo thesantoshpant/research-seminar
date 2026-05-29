@@ -5,8 +5,11 @@ This repository contains the source code, trained-model artifacts, and documenta
 The framework combines a U-Net image branch (ResNet-18 encoder) with a recurrent photon branch and integrates the two modalities through a deep feature-level fusion stage. On a geographically held-out test tile (T03CWT), the fused model attains a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468**, improving over both unimodal baselines.
 
 <p align="center">
-  <img src="runs/deep_fusion/confmat.png" width="480" alt="Confusion matrix of the deep-fusion model on the held-out tile T03CWT"/>
+  <img src="confusion_matrices/unet_green.png" width="310" alt="Confusion matrix – U-Net baseline"/>
+  <img src="confusion_matrices/lstm_green.png" width="310" alt="Confusion matrix – LSTM baseline"/>
+  <img src="confusion_matrices/deepfusion_green.png" width="310" alt="Confusion matrix – Deep Fusion (best model)"/>
 </p>
+<p align="center"><em>Left: U-Net &nbsp;|&nbsp; Centre: LSTM &nbsp;|&nbsp; Right: Deep Fusion</em></p>
 
 ---
 
