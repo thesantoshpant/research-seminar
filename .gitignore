@@ -1,0 +1,87 @@
+# ---------------------------------------------------------------
+# Sea-ice deep fusion project — what NOT to commit.
+#
+# Keep in git: notebooks (.ipynb), generator scripts (make_*.py,
+# crop_*.py, segment_*.py), PDFs, notebook_output/ (small comparison
+# figures), and the SMALL artifacts under runs/ + archive/runs/
+# (test_metrics.json, metrics.csv, confmat.png, loss_curve.png).
+#
+# Everything below this line stays out of the repo because it is
+# either huge raw/processed data, intermediate caches, model
+# checkpoints, or local editor/IDE/OS junk.
+# ---------------------------------------------------------------
+
+# --- Raw + processed datasets (gigabytes — never push) ---
+S2_tiff/
+IS2_Corrected_data/
+outputs/
+outputs_segmented/
+
+# --- Bundled archives of the dataset ---
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# --- Trained model checkpoints (large) ---
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.safetensors
+
+# --- Training caches that get regenerated on each run ---
+**/csv_normed/
+**/csv_segments/
+
+# --- Heavy CSV manifests (file path listings, regeneratable from
+#     crop_*.py / segment_*.py — the U-Net manifest alone is 34MB) ---
+**/manifest.csv
+
+# --- Random screenshots / scratch images (any depth) ---
+Screenshot_*.jpeg
+Screenshot_*.jpg
+Screenshot_*.png
+
+# --- Build scripts that just regenerate notebooks / PDFs ---
+# The .ipynb files and PDFs they produce are what get tracked. The
+# generator scripts stay local; they're build tooling, not deliverables.
+make_*.py
+**/make_*.py
+
+# --- Python bytecode + caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtualenvs ---
+.venv/
+venv/
+env/
+.env
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Editor / OS junk ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.un~
+.DS_Store
+Thumbs.db
+
+# --- Tool / agent local state ---
+.claude/

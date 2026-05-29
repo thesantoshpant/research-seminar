@@ -1,0 +1,11 @@
+torch
+torchvision
+segmentation-models-pytorch
+numpy
+pandas
+pillow
+matplotlib
+scikit-learn
+tqdm
+jupyter
+nbconvert
