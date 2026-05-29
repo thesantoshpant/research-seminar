@@ -1,4 +1,4 @@
-model,pixel_accuracy,mIoU,macro_precision,macro_recall,macro_F1,weighted_F1,ice_IoU,thin_IoU,water_IoU
+model,pixel_accuracy,mIoU,macro_precision,macro_recall,macro_F1,weighted_F1,ice_IoU,thin_IoU,open_water_IoU
 U-Net (img only),0.9429,0.8704,0.9402,0.9188,0.9291,0.9422,0.9299,0.7683,0.913
 Bi-LSTM (CSV only),0.7254,0.242,0.3054,0.3335,0.2806,0.6101,0.7254,0.0,0.0005
 Late fusion -- uniform avg,0.9186,0.8081,0.9534,0.8468,0.8907,0.9142,0.8992,0.6755,0.8497

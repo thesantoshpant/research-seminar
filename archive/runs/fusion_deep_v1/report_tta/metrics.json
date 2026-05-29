@@ -139,7 +139,7 @@
   "class_names": [
     "ice",
     "thin_ice",
-    "water"
+    "open_water"
   ],
   "checkpoint": "/home/spant/Research Seminar/Project/runs/fusion_deep_v1/best.pt",
   "n_test": 46004
