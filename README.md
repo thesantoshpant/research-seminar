@@ -23,6 +23,21 @@ Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and *
 
 *Fig. 1: Row-normalized confusion matrices for the three multimodal fusion strategies evaluated on the geographically held-out tile T03CWT.*
 
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="confusion_matrices/lstm_green.png" width="300" alt="BiLSTM Confusion Matrix"/>
+      <br/><b>(a) BiLSTM</b>
+    </td>
+    <td align="center">
+      <img src="confusion_matrices/unet_green.png" width="300" alt="U-Net Confusion Matrix"/>
+      <br/><b>(b) U-Net</b>
+    </td>
+  </tr>
+</table>
+
+*Fig. 2: Row-normalized confusion matrices for the two unimodal baseline models evaluated on the geographically held-out tile T03CWT.*
+
 ---
 
 ## Key Results
