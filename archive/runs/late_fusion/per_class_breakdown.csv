@@ -1,0 +1,16 @@
+model,class,support,precision,recall,F1,IoU
+U-Net (img only),thick ice,546813119,0.9533,0.9743,0.9637,0.9299
+U-Net (img only),thin ice,167677975,0.8995,0.8404,0.869,0.7683
+U-Net (img only),water,39238442,0.9677,0.9417,0.9545,0.913
+Bi-LSTM (CSV only),thick ice,546813119,0.7255,0.9999,0.8409,0.7254
+Bi-LSTM (CSV only),thin ice,167677975,0.0,0.0,0.0,0.0
+Bi-LSTM (CSV only),water,39238442,0.1907,0.0005,0.001,0.0005
+Late fusion -- uniform avg,thick ice,546813119,0.9061,0.9916,0.9469,0.8992
+Late fusion -- uniform avg,thin ice,167677975,0.9588,0.6957,0.8063,0.6755
+Late fusion -- uniform avg,water,39238442,0.9954,0.853,0.9187,0.8497
+Late fusion -- best alpha=1.00,thick ice,546813119,0.9533,0.9743,0.9637,0.9299
+Late fusion -- best alpha=1.00,thin ice,167677975,0.8995,0.8404,0.869,0.7683
+Late fusion -- best alpha=1.00,water,39238442,0.9677,0.9417,0.9545,0.913
+Late fusion -- per-class alpha,thick ice,546813119,0.9533,0.9743,0.9637,0.9299
+Late fusion -- per-class alpha,thin ice,167677975,0.8995,0.8404,0.869,0.7683
+Late fusion -- per-class alpha,water,39238442,0.9677,0.9417,0.9545,0.913
