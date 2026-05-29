@@ -82,6 +82,3 @@ env/
 *.un~
 .DS_Store
 Thumbs.db
-
-# --- Tool / agent local state ---
-.claude/
