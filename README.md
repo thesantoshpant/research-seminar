@@ -207,14 +207,17 @@ Class encoding in the masks: red = thick ice, blue = thin ice, green = open wate
 
 ## Future Directions
 
-Several extensions of this work are planned or under consideration:
+### 1. SAR Modality Integration
 
-- **Temporal fusion.** Incorporating multi-date Sentinel-2 composites and ICESat-2 repeat-track acquisitions to model seasonal ice dynamics and detect change over time.
-- **SAR integration.** Adding Sentinel-1 C-band synthetic aperture radar backscatter as a third modality, which is unaffected by cloud cover and provides complementary structural information about ice surface roughness.
-- **Finer ice-type taxonomy.** Expanding the three-class scheme (thick ice / thin ice / open water) to include first-year ice, multi-year ice, and mixed-phase categories, guided by ship-based or airborne validation data.
-- **Arctic transferability.** Evaluating zero-shot and fine-tuned transfer of the trained model to Arctic scenes, where ice dynamics and sensor viewing geometries differ from the Ross Sea.
-- **Uncertainty quantification.** Applying Monte Carlo dropout or ensemble methods to produce per-pixel confidence estimates, enabling downstream decision-makers to flag low-confidence regions for human review.
-- **Operational deployment.** Packaging the pipeline as a cloud-native inference service that ingests new satellite acquisitions and produces near-real-time sea-ice maps without manual intervention.
+The current framework relies on Sentinel-2 optical imagery, which is unavailable under cloud cover — a frequent occurrence over polar regions. A natural next step is to incorporate Sentinel-1 C-band synthetic aperture radar (SAR) backscatter as a third input modality. Unlike optical sensors, SAR penetrates clouds and operates independently of solar illumination, making it well-suited for year-round polar monitoring. At the architecture level, SAR features could be introduced through a third branch analogous to the photon branch, with its output projected and fused at the feature-concatenation stage alongside the U-Net and LSTM representations. Because SAR backscatter encodes surface roughness and dielectric properties, it carries complementary ice-structural information that may help resolve thin-ice and nilas categories that are spectrally ambiguous in optical bands. The primary challenge is co-registration: Sentinel-1 and Sentinel-2 acquisitions are not simultaneous, so temporal offsets must be accounted for during patch extraction.
+
+### 2. Temporal Sequence Modeling
+
+The current model treats each 128×128 patch as an independent snapshot, discarding the temporal context available from repeat satellite passes. Sentinel-2 revisits the same tile every five days and ICESat-2 follows a 91-day repeat cycle, making multi-date fusion a tractable extension. A temporal model could stack patches from several consecutive overpasses as additional input channels to the U-Net, or apply a convolutional LSTM across the time dimension to propagate spatial–temporal hidden states. This would allow the model to distinguish between ice classes that look similar in a single image but evolve differently over days or weeks — for example, new ice forming over open water versus persistent first-year ice. Beyond classification accuracy, temporal modeling opens the door to change-detection outputs: identifying pixels that transition between classes across acquisitions and quantifying the rate and spatial pattern of ice-cover change, which is directly relevant to climate-monitoring applications.
+
+### 3. Geographic Transfer to the Arctic
+
+All training and evaluation in this study used Ross Sea tiles (T02CNA, T02CNC, T03CWT). Antarctic and Arctic sea ice differ substantially in age distribution, surface roughness, melt-pond coverage, and sensor viewing geometry, so out-of-region generalization cannot be assumed. A systematic transfer study would evaluate the trained deep-fusion model in a zero-shot setting on labeled Arctic acquisitions and compare it with models fine-tuned on small Arctic target sets. If labeled Arctic data are scarce, domain-adaptation techniques — such as adversarial feature alignment or self-supervised pre-training on unlabeled Arctic imagery — could bridge the gap. Successful transfer would establish the framework as a general polar ice-classification tool rather than a region-specific one, increasing its utility for operational agencies such as the National Ice Center and the Norwegian Ice Service that monitor both hemispheres.
 
 ---
 
@@ -239,3 +242,15 @@ A corresponding manuscript is in preparation. Please cite that work if you build
 | Deep-fusion model and ablation study | Complete |
 | Technical report (`project_summary.pdf`) | Complete |
 | Manuscript | In preparation |
+
+---
+
+## Releases
+
+No releases published.
+
+---
+
+## Packages
+
+No packages published.
