@@ -87,8 +87,8 @@ Thin ice is the most challenging class across all models; deep fusion's photon-i
 ```
 .
 ├── deep_fusion.ipynb                  Deep-fusion model (primary result)
-├── fusion_late_unet_profstyle.ipynb   Late-fusion model
-├── fusion_hybrid_unet_profstyle.ipynb Hybrid-fusion model
+├── fusion_late_unet.ipynb             Late-fusion model
+├── fusion_hybrid_unet.ipynb           Hybrid-fusion model
 ├── lstm_sweep.ipynb                   21-configuration LSTM hyperparameter sweep
 ├── requirements.txt                   Python dependencies
 ├── project_summary.pdf                Technical report with figures
@@ -209,10 +209,10 @@ Execute any of the three fusion notebooks to train and evaluate that strategy:
 jupyter nbconvert --to notebook --execute deep_fusion.ipynb
 
 # Late Fusion
-jupyter nbconvert --to notebook --execute fusion_late_unet_profstyle.ipynb
+jupyter nbconvert --to notebook --execute fusion_late_unet.ipynb
 
 # Hybrid Fusion
-jupyter nbconvert --to notebook --execute fusion_hybrid_unet_profstyle.ipynb
+jupyter nbconvert --to notebook --execute fusion_hybrid_unet.ipynb
 ```
 
 Outputs (confusion matrices, loss curves, metrics) are written to the respective `runs/` subdirectory. The final per-class metrics are recorded in `test_metrics.json`.
