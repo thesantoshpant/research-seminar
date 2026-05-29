@@ -1,6 +1,6 @@
 # Multimodal Fusion Strategies for Antarctic Sea Ice Classification
 
-This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes — **thick ice**, **thin ice**, and **open water** — by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
+This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes (**thick ice**, **thin ice**, and **open water**) by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
 
 Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and **Deep Fusion**. Each integrates the two modalities at a different level of abstraction. Deep feature-level fusion achieves the best result, attaining a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468** on a geographically held-out test tile (T03CWT), improving over both unimodal baselines and the other two fusion approaches.
 
@@ -31,7 +31,7 @@ All models are trained on tiles T02CNA and T02CNC and evaluated on the geographi
 
 | Model | Input Modality | Test mIoU | IoU (Thick Ice) | IoU (Thin Ice) | IoU (Water) | Macro F1 |
 |:--|:--|:--:|:--:|:--:|:--:|:--:|
-| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 | — |
+| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 | N/A |
 | BiLSTM | ICESat-2 photon | 0.6978 | 0.9671 | 0.5427 | 0.5836 | 0.8080 |
 | Late Fusion | optical + photon | 0.8770 | 0.9334 | 0.7785 | 0.9189 | 0.9329 |
 | Hybrid Fusion | optical + photon | 0.8891 | 0.9396 | 0.7988 | 0.9290 | 0.9401 |
@@ -47,7 +47,7 @@ A detailed report with per-class precision/recall/F1, confusion matrices, traini
 
 ### Architectures
 
-All three strategies share the same two modality-specific branches — a U-Net image branch and a recurrent photon branch — but differ in **where and how** their representations are combined.
+All three strategies share the same two modality-specific branches (a U-Net image branch and a recurrent photon branch) but differ in **where and how** their representations are combined.
 
 | Strategy | Integration Level | Mechanism |
 |:--|:--|:--|
@@ -57,7 +57,7 @@ All three strategies share the same two modality-specific branches — a U-Net i
 
 ### Performance Analysis
 
-**Late Fusion (mIoU 0.8770)** is the most modular approach: each branch is trained and evaluated independently, and their outputs are combined only at inference time. While straightforward to implement and debug, late fusion cannot capture cross-modal feature interactions — the two branches remain "unaware" of each other during training and during intermediate computations. This limits its ability to learn complementary representations.
+**Late Fusion (mIoU 0.8770)** is the most modular approach: each branch is trained and evaluated independently, and their outputs are combined only at inference time. While straightforward to implement and debug, late fusion cannot capture cross-modal feature interactions; the two branches remain "unaware" of each other during training and during intermediate computations. This limits its ability to learn complementary representations.
 
 **Hybrid Fusion (mIoU 0.8891)** improves on late fusion by introducing a mid-network fusion path: photon embeddings are injected into the U-Net decoder at an intermediate spatial scale, allowing the image branch to condition its feature extraction on photon cues. The retained decision-level averaging provides a regularization effect. The result is a +1.2 pp mIoU gain over late fusion, with the largest improvement in thin-ice IoU (+2.0 pp).
 
