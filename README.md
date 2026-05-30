@@ -44,7 +44,7 @@ Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and *
 
 All models are trained on tiles T02CNA and T02CNC and evaluated on the geographically separated tile T03CWT. The split is performed by tile rather than by random patches, providing a strict test of geographic generalization.
 
-| Model | Input Modality | Test mIoU | IoU (Thick Ice) | IoU (Thin Ice) | IoU (Water) | Macro F1 |
+| Model | Input Modality | Test mIoU | IoU (Thick Ice) | IoU (Thin Ice) | IoU (Open Water) | Macro F1 |
 |:--|:--|:--:|:--:|:--:|:--:|:--:|
 | U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 | N/A |
 | BiLSTM | ICESat-2 photon | 0.6978 | 0.9671 | 0.5427 | 0.5836 | 0.8080 |
@@ -84,7 +84,7 @@ All three strategies share the same two modality-specific branches (a U-Net imag
 |:--|:--:|:--:|:--:|:--:|:--:|
 | Thick ice IoU | 0.9299 | 0.9671 | 0.9334 | 0.9396 | **0.9403** |
 | Thin ice IoU  | 0.7683 | 0.5427 | 0.7785 | 0.7988 | **0.8138** |
-| Water IoU     | 0.9130 | 0.5836 | 0.9189 | 0.9290 | **0.9489** |
+| Open Water IoU | 0.9130 | 0.5836 | 0.9189 | 0.9290 | **0.9489** |
 
 Thin ice is the most challenging class across all models; deep fusion's photon-informed recalibration is most beneficial there (+4.5 pp over U-Net).
 
