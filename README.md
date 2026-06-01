@@ -84,34 +84,36 @@ All three strategies share the same two modality-specific branches (a U-Net imag
 
 ### Model Configurations
 
-| Component | Deep Fusion | Hybrid Fusion | Late Fusion |
-|:--|:--:|:--:|:--:|
-| Input modality | Image + ATL03 features | Image + ATL03 features | Image + ATL03 features |
-| Image encoder | U-Net ResNet-18 | U-Net ResNet-18 | U-Net ResNet-18 |
-| Encoder weights | ImageNet | ImageNet | ImageNet |
-| Sequence length | 5 | 5 | 5 |
-| LSTM hidden dim | 96 | 48 | 48 |
-| LSTM layers | 1 | 1 | 1 |
-| LSTM direction | Unidirectional | Unidirectional | Unidirectional |
-| LSTM dropout | 0.4 | 0.4 | 0.4 |
-| Head hidden dim | 16 | 16 | 16 |
-| Head dropout | 0.4 | 0.4 | 0.4 |
-| Fusion channels | 16 | 16 | 16 |
-| Fusion strategy | Feature-level fusion | Feature + decision fusion | Decision-level fusion |
-| Fusion block | SE attention | SE attention + learned blending | Learnable logit blending |
-| SE reduction | 8 | 8 | — |
-| Optimizer | Adam | AdamW | AdamW |
-| Learning rate | 1e-4 / 1e-5 | 1e-4 | 1e-4 |
-| Weight decay | 1e-4 | 1e-4 | 1e-4 |
-| Batch size | 32 | 32 | 32 |
-| Max epochs | 30 | 30 | 30 |
-| Early stopping patience | 8 | 7 | 7 |
-| Loss function | Focal loss | Focal loss | Focal loss |
-| Focal alpha | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] |
-| Focal gamma | 2.0 | 2.0 | 2.0 |
-| LR scheduler | Cosine annealing | Cosine annealing | Cosine annealing |
-| Mixed precision | AMP | AMP | AMP |
-| Gradient clipping | — | 1.0 | 1.0 |
+| Component | U-Net | Bi-LSTM | Deep Fusion | Hybrid Fusion | Late Fusion |
+|:--|:--:|:--:|:--:|:--:|:--:|
+| Input modality | Optical image | ATL03 features | Image + ATL03 features | Image + ATL03 features | Image + ATL03 features |
+| Image encoder | U-Net ResNet-18 | — | U-Net ResNet-18 | U-Net ResNet-18 | U-Net ResNet-18 |
+| Encoder weights | ImageNet | — | ImageNet | ImageNet | ImageNet |
+| Input channels | 3 | — | 3 + ATL03 | 3 + ATL03 | 3 + ATL03 |
+| Number of classes | 3 | 3 | 3 | 3 | 3 |
+| Sequence length | — | 5 | 5 | 5 | 5 |
+| LSTM hidden dim | — | 96 | 96 | 48 | 48 |
+| LSTM layers | — | 1 | 1 | 1 | 1 |
+| LSTM direction | — | Unidirectional | Unidirectional | Unidirectional | Unidirectional |
+| LSTM dropout | — | 0.4 | 0.4 | 0.4 | 0.4 |
+| Head hidden dim | — | 16 | 16 | 16 | 16 |
+| Head dropout | — | 0.4 | 0.4 | 0.4 | 0.4 |
+| Fusion channels | — | — | 16 | 16 | 16 |
+| Fusion strategy | — | — | Feature-level fusion | Feature + decision fusion | Decision-level fusion |
+| Fusion block | — | — | SE attention | SE attention + learned blending | Learned logit blending |
+| SE reduction | — | — | 8 | 8 | — |
+| Optimizer | AdamW | Adam | Adam | AdamW | AdamW |
+| Learning rate | 1e-4 | 8.886e-4 | 1e-4 / 1e-5 | 1e-4 | 1e-4 |
+| Weight decay | 1e-4 | — | 1e-4 | 1e-4 | 1e-4 |
+| Batch size | 64 | 32 | 32 | 32 | 32 |
+| Max epochs | 30 | 50 | 30 | 30 | 30 |
+| Early stopping patience | 5 | — | 8 | 7 | 7 |
+| Loss function | Weighted CE | Focal loss | Focal loss | Focal loss | Focal loss |
+| Focal alpha | — | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] |
+| Focal gamma | — | 2.0 | 2.0 | 2.0 | 2.0 |
+| LR scheduler | Cosine annealing | — | Cosine annealing | Cosine annealing | Cosine annealing |
+| Mixed precision | AMP | — | AMP | AMP | AMP |
+| Gradient clipping | — | — | — | 1.0 | 1.0 |
 
 ### Performance Analysis
 
