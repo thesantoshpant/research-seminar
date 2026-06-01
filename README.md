@@ -1,5 +1,17 @@
 # Multimodal Fusion Strategies for Antarctic Sea Ice Classification
 
+## Authors
+
+| Name | Role |
+|:--|:--|
+| **Chau Tran** | Intersection between coding and paper writing |
+| **Dipsha Budhathoki** | Paper writing |
+| **Santosh Pant** | Coding |
+| **Arito Nakamichi** | Diagrams |
+| **Professor Iqrah** | Advisor |
+
+---
+
 This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes (**thick ice**, **thin ice**, and **open water**) by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
 
 Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and **Deep Fusion**. Each integrates the two modalities at a different level of abstraction. Deep feature-level fusion achieves the best result, attaining a mean Intersection-over-Union (mIoU) of **0.8896** and a macro-averaged F1 score of **0.9468** on a geographically held-out test tile (T03CWT), improving over both unimodal baselines and the other two fusion approaches.
@@ -358,14 +370,7 @@ Refer to the [Fusion Strategy Comparison](#fusion-strategy-comparison) section a
 
 The following variants quantify the contribution of each design decision in the Deep Fusion model. All are evaluated on the held-out tile T03CWT.
 
-| Variant | mIoU | Configuration |
-|:--|:--:|:--|
-| `fusion_v2` | 0.8020 | Photon branch trained from random initialization (unstable) |
-| `fusion_v3` | 0.8949 | Higher-capacity recurrent branch, random initialization |
-| `fusion_v4` | 0.8982 | Pretrained photon branch, frozen during fusion training |
-| **`deep_fusion`** | **0.8896** | Pretrained photon branch, fine-tuned at 0.1× learning rate |
-
-The strongest result is obtained with the smaller pretrained-and-fine-tuned recurrent branch rather than the larger randomly initialized one, indicating that transferred representations contribute more than additional model capacity for this task. The archived variants and their metrics are available under `archive/`.
+Throughout development we explored different model architectures, loss configurations, and hyperparameter settings before arriving at the final design. The variants stored under `archive/` represent these earlier iterations; the current notebooks reflect the final configurations used to produce the reported results.
 
 ---
 
