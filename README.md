@@ -4,9 +4,9 @@
 
 | Name | Role |
 |:--|:--|
-| **Chau Tran** | Model Implementation & Manuscript Preparation |
+| **Chau Tran** | Model Development & Technical Writing |
 | **Dipsha Budhathoki** | Research Writing & Literature Review |
-| **Santosh Pant** | Software Development & Experimental Design |
+| **Santosh Pant** | Model Implementation |
 | **Arito Nakamichi** | Figure Design & Visualization |
 | **Professor Iqrah** | Faculty Advisor |
 
