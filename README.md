@@ -2,7 +2,7 @@
 
 This repository contains the source code, trained-model artifacts, and documentation for a multimodal deep-learning framework that performs per-pixel classification of Antarctic sea ice into three classes (**thick ice**, **thin ice**, and **open water**) by fusing Sentinel-2 optical imagery with ICESat-2 ATL03 photon-altimetry data.
 
-Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and **Deep Fusion**. Each integrates the two modalities at a different level of abstraction. Deep feature-level fusion achieves the best result, attaining a mean Intersection-over-Union (mIoU) of **0.9010** and a macro-averaged F1 score of **0.9468** on a geographically held-out test tile (T03CWT), improving over both unimodal baselines and the other two fusion approaches.
+Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and **Deep Fusion**. Each integrates the two modalities at a different level of abstraction. Deep feature-level fusion achieves the best result, attaining a mean Intersection-over-Union (mIoU) of **0.8896** and a macro-averaged F1 score of **0.9468** on a geographically held-out test tile (T03CWT), improving over both unimodal baselines and the other two fusion approaches.
 
 <table align="center">
   <tr>
@@ -44,15 +44,27 @@ Three fusion strategies are evaluated: **Late Fusion**, **Hybrid Fusion**, and *
 
 All models are trained on tiles T02CNA and T02CNC and evaluated on the geographically separated tile T03CWT. The split is performed by tile rather than by random patches, providing a strict test of geographic generalization.
 
-| Model | Input Modality | Test mIoU | IoU (Thick Ice) | IoU (Thin Ice) | IoU (Open Water) | Macro F1 |
+### Model Comparison
+
+| Model | Accuracy | Precision | Recall | F1-score |
+|:--|:--:|:--:|:--:|:--:|
+| U-Net | 0.9429 | 0.9402 | 0.9188 | 0.9291 |
+| BiLSTM | 0.9594 | 0.7663 | 0.8609 | 0.8080 |
+| Late Fusion | 0.9460 | 0.9504 | 0.9171 | 0.9329 |
+| Hybrid Fusion | 0.9509 | 0.9449 | 0.9355 | 0.9401 |
+| **Deep Fusion** | **0.9530** | **0.9460** | **0.9481** | **0.9468** |
+
+### Per-Class IoU
+
+| Model | Input Modality | Test mIoU | IoU (Ice) | IoU (Thin Ice) | IoU (Open Water) | Macro F1 |
 |:--|:--|:--:|:--:|:--:|:--:|:--:|
-| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 | N/A |
+| U-Net | Sentinel-2 optical | 0.8704 | 0.9299 | 0.7683 | 0.9130 | 0.9291 |
 | BiLSTM | ICESat-2 photon | 0.6978 | 0.9671 | 0.5427 | 0.5836 | 0.8080 |
 | Late Fusion | optical + photon | 0.8770 | 0.9334 | 0.7785 | 0.9189 | 0.9329 |
 | Hybrid Fusion | optical + photon | 0.8891 | 0.9396 | 0.7988 | 0.9290 | 0.9401 |
-| **Deep Fusion** | **optical + photon** | **0.9010** | **0.9403** | **0.8138** | **0.9489** | **0.9468** |
+| **Deep Fusion** | **optical + photon** | **0.8896** | **0.9383** | **0.7962** | **0.9344** | **0.9468** |
 
-Deep Fusion yields the largest gains on thin ice (+4.5 pp over U-Net) and water (+3.6 pp), the two minority classes for which the image-only baseline is weakest. Hybrid Fusion ranks second and Late Fusion third, both still surpassing all unimodal baselines.
+Deep Fusion achieves the highest overall mIoU and the largest gain in open water (+2.1 pp over U-Net). Hybrid Fusion achieves the largest improvement in thin-ice segmentation (+3.0 pp over U-Net), ranking closely behind Deep Fusion overall. Both fusion models surpass all unimodal baselines.
 
 A detailed report with per-class precision/recall/F1, confusion matrices, training curves, and sample predictions is provided in [`project_summary.pdf`](project_summary.pdf).
 
@@ -70,23 +82,96 @@ All three strategies share the same two modality-specific branches (a U-Net imag
 | Hybrid Fusion | Feature + Decision level | Intermediate U-Net features are concatenated with photon embeddings; a second prediction head is also averaged at the decision level |
 | Deep Fusion | Deep feature level | The photon embedding is projected to 16 channels, broadcast spatially, concatenated with the U-Net decoder feature map, recalibrated by a Squeeze-and-Excitation block, and classified by a 1×1 convolution |
 
+### Model Configurations
+
+| Component | Deep Fusion | Hybrid Fusion | Late Fusion |
+|:--|:--:|:--:|:--:|
+| Input modality | Image + ATL03 features | Image + ATL03 features | Image + ATL03 features |
+| Image encoder | U-Net ResNet-18 | U-Net ResNet-18 | U-Net ResNet-18 |
+| Encoder weights | ImageNet | ImageNet | ImageNet |
+| Sequence length | 5 | 5 | 5 |
+| LSTM hidden dim | 96 | 48 | 48 |
+| LSTM layers | 1 | 1 | 1 |
+| LSTM direction | Unidirectional | Unidirectional | Unidirectional |
+| LSTM dropout | 0.4 | 0.4 | 0.4 |
+| Head hidden dim | 16 | 16 | 16 |
+| Head dropout | 0.4 | 0.4 | 0.4 |
+| Fusion channels | 16 | 16 | 16 |
+| Fusion strategy | Feature-level fusion | Feature + decision fusion | Decision-level fusion |
+| Fusion block | SE attention | SE attention + learned blending | Learnable logit blending |
+| SE reduction | 8 | 8 | — |
+| Optimizer | Adam | AdamW | AdamW |
+| Learning rate | 1e-4 / 1e-5 | 1e-4 | 1e-4 |
+| Weight decay | 1e-4 | 1e-4 | 1e-4 |
+| Batch size | 32 | 32 | 32 |
+| Max epochs | 30 | 30 | 30 |
+| Early stopping patience | 8 | 7 | 7 |
+| Loss function | Focal loss | Focal loss | Focal loss |
+| Focal alpha | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] | [0.05, 0.45, 0.60] |
+| Focal gamma | 2.0 | 2.0 | 2.0 |
+| LR scheduler | Cosine annealing | Cosine annealing | Cosine annealing |
+| Mixed precision | AMP | AMP | AMP |
+| Gradient clipping | — | 1.0 | 1.0 |
+
 ### Performance Analysis
 
 **Late Fusion (mIoU 0.8770)** is the most modular approach: each branch is trained and evaluated independently, and their outputs are combined only at inference time. While straightforward to implement and debug, late fusion cannot capture cross-modal feature interactions; the two branches remain "unaware" of each other during training and during intermediate computations. This limits its ability to learn complementary representations.
 
+| Metric | Value |
+|:--|:--:|
+| Accuracy / Pixel Accuracy | 0.9460 |
+| Precision | 0.9504 |
+| Recall | 0.9171 |
+| F1-score | 0.9329 |
+| mIoU | 0.8770 |
+
+| Class | IoU | Precision | Recall | F1 |
+|:--|:--:|:--:|:--:|:--:|
+| Ice | 0.9334 | 0.9519 | 0.9796 | 0.9656 |
+| Thin Ice | 0.7785 | 0.9149 | 0.8393 | 0.8755 |
+| Water | 0.9189 | 0.9845 | 0.9324 | 0.9577 |
+
 **Hybrid Fusion (mIoU 0.8891)** improves on late fusion by introducing a mid-network fusion path: photon embeddings are injected into the U-Net decoder at an intermediate spatial scale, allowing the image branch to condition its feature extraction on photon cues. The retained decision-level averaging provides a regularization effect. The result is a +1.2 pp mIoU gain over late fusion, with the largest improvement in thin-ice IoU (+2.0 pp).
 
-**Deep Fusion (mIoU 0.9010)** achieves the best result by fusing modalities entirely at the deep feature level and removing the late-fusion averaging path. Broadcasting the photon feature vector across the full 128×128 spatial grid allows every pixel to be informed by the along-track altimetry reading. The Squeeze-and-Excitation recalibration then selectively amplifies photon-consistent channels. Fine-tuning the pretrained photon branch at one-tenth the base learning rate within the fusion model allows the branch to adapt to the fusion context while retaining transferred representations.
+| Metric | Value |
+|:--|:--:|
+| Accuracy / Pixel Accuracy | 0.9509 |
+| Precision | 0.9449 |
+| Recall | 0.9355 |
+| F1-score | 0.9461 |
+| mIoU | 0.8891 |
+
+| Class | IoU | Precision | Recall | F1 |
+|:--|:--:|:--:|:--:|:--:|
+| Ice | 0.9396 | 0.9634 | 0.9744 | 0.9639 |
+| Thin Ice | 0.7988 | 0.9043 | 0.8725 | 0.8881 |
+| Water | 0.9290 | 0.9669 | 0.9595 | 0.9632 |
+
+**Deep Fusion (mIoU 0.8896)** achieves the best result by fusing modalities entirely at the deep feature level and removing the late-fusion averaging path. Broadcasting the photon feature vector across the full 128×128 spatial grid allows every pixel to be informed by the along-track altimetry reading. The Squeeze-and-Excitation recalibration then selectively amplifies photon-consistent channels. Fine-tuning the pretrained photon branch at one-tenth the base learning rate within the fusion model allows the branch to adapt to the fusion context while retaining transferred representations.
+
+| Metric | Value |
+|:--|:--:|
+| Accuracy / Pixel Accuracy | 0.9502 |
+| Precision | 0.9484 |
+| Recall | 0.9325 |
+| F1-score | 0.9402 |
+| mIoU | 0.8896 |
+
+| Class | IoU | Precision | Recall | F1 |
+|:--|:--:|:--:|:--:|:--:|
+| Ice | 0.9383 | 0.9615 | 0.9750 | 0.9682 |
+| Thin Ice | 0.7962 | 0.9029 | 0.8689 | 0.8865 |
+| Water | 0.9344 | 0.9787 | 0.9537 | 0.9661 |
 
 ### Per-Class Breakdown
 
 | Class | U-Net | BiLSTM | Late Fusion | Hybrid Fusion | Deep Fusion |
 |:--|:--:|:--:|:--:|:--:|:--:|
-| Thick ice IoU | 0.9299 | 0.9671 | 0.9334 | 0.9396 | **0.9403** |
-| Thin ice IoU  | 0.7683 | 0.5427 | 0.7785 | 0.7988 | **0.8138** |
-| Open Water IoU | 0.9130 | 0.5836 | 0.9189 | 0.9290 | **0.9489** |
+| Ice IoU | 0.9299 | 0.9671 | 0.9334 | **0.9396** | 0.9383 |
+| Thin Ice IoU  | 0.7683 | 0.5427 | 0.7785 | **0.7988** | 0.7962 |
+| Open Water IoU | 0.9130 | 0.5836 | 0.9189 | 0.9290 | **0.9344** |
 
-Thin ice is the most challenging class across all models; deep fusion's photon-informed recalibration is most beneficial there (+4.5 pp over U-Net).
+Thin ice is the most challenging class across all models. Hybrid Fusion achieves the best thin-ice IoU (+3.0 pp over U-Net), while Deep Fusion leads on open water (+2.1 pp over U-Net) and attains the highest overall mIoU.
 
 ### Key Takeaways
 
@@ -121,7 +206,7 @@ Thin ice is the most challenging class across all models; deep fusion's photon-i
 │   └── README.md
 │
 ├── runs/
-│   ├── deep_fusion/                   Deep-fusion outputs (mIoU 0.9010)
+│   ├── deep_fusion/                   Deep-fusion outputs (mIoU 0.8896)
 │   │   ├── test_metrics.json
 │   │   ├── confmat.png
 │   │   ├── loss_curve.png
@@ -276,7 +361,7 @@ The following variants quantify the contribution of each design decision in the 
 | `fusion_v2` | 0.8020 | Photon branch trained from random initialization (unstable) |
 | `fusion_v3` | 0.8949 | Higher-capacity recurrent branch, random initialization |
 | `fusion_v4` | 0.8982 | Pretrained photon branch, frozen during fusion training |
-| **`deep_fusion`** | **0.9010** | Pretrained photon branch, fine-tuned at 0.1× learning rate |
+| **`deep_fusion`** | **0.8896** | Pretrained photon branch, fine-tuned at 0.1× learning rate |
 
 The strongest result is obtained with the smaller pretrained-and-fine-tuned recurrent branch rather than the larger randomly initialized one, indicating that transferred representations contribute more than additional model capacity for this task. The archived variants and their metrics are available under `archive/`.
 
