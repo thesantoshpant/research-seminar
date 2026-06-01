@@ -368,8 +368,6 @@ Refer to the [Fusion Strategy Comparison](#fusion-strategy-comparison) section a
 
 ## Ablation Study
 
-The following variants quantify the contribution of each design decision in the Deep Fusion model. All are evaluated on the held-out tile T03CWT.
-
 Throughout development we explored different model architectures, loss configurations, and hyperparameter settings before arriving at the final design. The variants stored under `archive/` represent these earlier iterations; the current notebooks reflect the final configurations used to produce the reported results.
 
 ---
