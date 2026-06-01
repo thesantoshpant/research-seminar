@@ -4,11 +4,11 @@
 
 | Name | Role |
 |:--|:--|
-| **Chau Tran** | Intersection between coding and paper writing |
-| **Dipsha Budhathoki** | Paper writing |
-| **Santosh Pant** | Coding |
-| **Arito Nakamichi** | Diagrams |
-| **Professor Iqrah** | Advisor |
+| **Chau Tran** | Model Implementation & Manuscript Preparation |
+| **Dipsha Budhathoki** | Research Writing & Literature Review |
+| **Santosh Pant** | Software Development & Experimental Design |
+| **Arito Nakamichi** | Figure Design & Visualization |
+| **Professor Iqrah** | Faculty Advisor |
 
 ---
 
