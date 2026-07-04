@@ -1,5 +1,13 @@
 # Multimodal Fusion Strategies for Antarctic Sea Ice Classification
 
+[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Jupyter](https://img.shields.io/badge/Jupyter-F37626?logo=jupyter&logoColor=white)](https://jupyter.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![mIoU](https://img.shields.io/badge/mIoU-0.8896-success)](#)
+[![Macro F1](https://img.shields.io/badge/Macro%20F1-0.9468-success)](#)
+[![License](https://img.shields.io/badge/License-Academic-blue)](#)
+
 ## Authors
 
 | Name | Role |
